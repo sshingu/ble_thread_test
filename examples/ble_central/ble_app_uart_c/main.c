@@ -480,7 +480,9 @@ static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, ble_nus_c_evt_t con
             //err_code = ble_nus_c_tx_notif_enable(p_ble_nus_c);
             APP_ERROR_CHECK(err_code);
             NRF_LOG_INFO("Connected to device with Nordic UART Service.");
-           /* set_sequence_number(&low_speed_mode);
+            //Resume Scan
+            scan_start();
+            /*set_sequence_number(&low_speed_mode);
             err_code = ble_nus_c_string_send(&m_ble_nus_c, low_speed_mode, sizeof(low_speed_mode));
                     if ( (err_code != NRF_ERROR_INVALID_STATE) && (err_code != NRF_ERROR_RESOURCES) )
                     {
@@ -495,7 +497,6 @@ static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, ble_nus_c_evt_t con
                         err_code = app_timer_start(m_measurement_timer,APP_TIMER_TICKS(MEASUREMENT_TIME),m_measurement_timer);
                         APP_ERROR_CHECK(err_code);
                     }*/
-
             break;
 
         case BLE_NUS_C_EVT_NUS_TX_EVT:
