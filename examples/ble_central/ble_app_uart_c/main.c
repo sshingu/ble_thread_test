@@ -135,7 +135,7 @@ void assert_nrf_callback(uint16_t line_num, const uint8_t * p_file_name)
 static void scan_start(void)
 {
     ret_code_t ret;
-
+    NRF_LOG_DEBUG("Scan Start!");
     ret = nrf_ble_scan_start(&m_scan);
     APP_ERROR_CHECK(ret);
 
@@ -176,7 +176,6 @@ static void scan_evt_handler(scan_evt_t const * p_scan_evt)
          case NRF_BLE_SCAN_EVT_SCAN_TIMEOUT:
          {
              NRF_LOG_INFO("Scan timed out.");
-             scan_start();
          } break;
 
          default:
@@ -481,6 +480,8 @@ static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, ble_nus_c_evt_t con
             //err_code = ble_nus_c_tx_notif_enable(p_ble_nus_c);
             APP_ERROR_CHECK(err_code);
             NRF_LOG_INFO("Connected to device with Nordic UART Service.");
+            //Resume Scan
+            scan_start();
            /* set_sequence_number(&low_speed_mode);
             err_code = ble_nus_c_string_send(&m_ble_nus_c, low_speed_mode, sizeof(low_speed_mode));
                     if ( (err_code != NRF_ERROR_INVALID_STATE) && (err_code != NRF_ERROR_RESOURCES) )
@@ -562,9 +563,9 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
             APP_ERROR_CHECK(err_code);
 
             // start discovery of services. The NUS Client waits for a discovery result
-            err_code = ble_db_discovery_start(&m_db_disc[p_gap_evt->conn_handle],
-p_gap_evt->conn_handle);
+            err_code = ble_db_discovery_start(&m_db_disc[p_gap_evt->conn_handle],p_gap_evt->conn_handle);
             APP_ERROR_CHECK(err_code);
+            scan_start();
             break;
 
         case BLE_GAP_EVT_DISCONNECTED:

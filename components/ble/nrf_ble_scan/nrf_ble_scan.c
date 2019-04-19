@@ -855,7 +855,6 @@ ret_code_t nrf_ble_scan_filter_get(nrf_ble_scan_t * const   p_scan_ctx,
 static void nrf_ble_scan_on_adv_report(nrf_ble_scan_t           const * const p_scan_ctx,
                                        ble_gap_evt_adv_report_t const * const p_adv_report)
 {
-    NRF_LOG_DEBUG("adv_report");
     scan_evt_t scan_evt;
 
 #if (NRF_BLE_SCAN_FILTER_ENABLE == 1)
@@ -1230,7 +1229,7 @@ ret_code_t nrf_ble_scan_params_set(nrf_ble_scan_t              * const p_scan_ct
 {
     VERIFY_PARAM_NOT_NULL(p_scan_ctx);
 
-    nrf_ble_scan_stop();
+    //nrf_ble_scan_stop();
 
     if (p_scan_param != NULL)
     {
