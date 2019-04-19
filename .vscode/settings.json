@@ -1,0 +1,14 @@
+{
+    "files.associations": {
+        "nordic_common.h": "c",
+        "nrf_uart.h": "c",
+        "nrf_log.h": "c",
+        "nrf_ble_qwr.h": "c",
+        "app_uart.h": "c",
+        "nrf_strerror.h": "c",
+        "ble_nus_c.h": "c",
+        "nrf_ble_gatt.h": "c",
+        "app_timer.h": "c"
+    },
+    "git.ignoreLimitWarning": true
+}
