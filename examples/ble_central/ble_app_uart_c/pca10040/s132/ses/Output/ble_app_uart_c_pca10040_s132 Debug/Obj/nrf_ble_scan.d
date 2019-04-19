@@ -1,5 +1,5 @@
 Output/ble_app_uart_c_pca10040_s132\ Debug/Obj/nrf_ble_scan.o: \
- C:\nRF5_SDK_15.3.0_59ac345\components\ble\nrf_ble_scan\nrf_ble_scan.c \
+ C:\home\nRF5_SDK_15.3.0_59ac345\components\ble\nrf_ble_scan\nrf_ble_scan.c \
  ../../../../../../components/libraries/util/sdk_common.h \
  C:/Program\ Files/SEGGER/SEGGER\ Embedded\ Studio\ for\ ARM\ 4.12/include/stdint.h \
  C:/Program\ Files/SEGGER/SEGGER\ Embedded\ Studio\ for\ ARM\ 4.12/include/stdbool.h \
@@ -30,7 +30,7 @@ Output/ble_app_uart_c_pca10040_s132\ Debug/Obj/nrf_ble_scan.o: \
  ../../../../../../components/libraries/util/sdk_macros.h \
  ../../../../../../components/libraries/util/nrf_assert.h \
  C:/Program\ Files/SEGGER/SEGGER\ Embedded\ Studio\ for\ ARM\ 4.12/include/stdlib.h \
- C:\nRF5_SDK_15.3.0_59ac345\components\ble\nrf_ble_scan\nrf_ble_scan.h \
+ C:\home\nRF5_SDK_15.3.0_59ac345\components\ble\nrf_ble_scan\nrf_ble_scan.h \
  ../../../../../../components/softdevice/s132/headers/ble.h \
  ../../../../../../components/softdevice/s132/headers/nrf_svc.h \
  ../../../../../../components/softdevice/s132/headers/nrf_error.h \
