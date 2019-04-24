@@ -1,5 +1,5 @@
 Output/ble_app_uart_c_pca10040_s132\ Debug/Obj/app_error.o: \
- C:\nRF5_SDK_15.3.0_59ac345\components\libraries\util\app_error.c \
+ C:\home\nRF5_SDK_15.3.0_59ac345\components\libraries\util\app_error.c \
  ../../../../../../modules/nrfx/mdk/nrf.h \
  ../../../../../../modules/nrfx/mdk/nrf52.h \
  ../../../../../../components/toolchain/cmsis/include/core_cm4.h \
@@ -15,9 +15,9 @@ Output/ble_app_uart_c_pca10040_s132\ Debug/Obj/app_error.o: \
  ../../../../../../modules/nrfx/mdk/compiler_abstraction.h \
  C:/Program\ Files/SEGGER/SEGGER\ Embedded\ Studio\ for\ ARM\ 4.12/include/stdio.h \
  C:/Program\ Files/SEGGER/SEGGER\ Embedded\ Studio\ for\ ARM\ 4.12/include/__crossworks.h \
- C:\nRF5_SDK_15.3.0_59ac345\components\libraries\util\app_error.h \
+ C:\home\nRF5_SDK_15.3.0_59ac345\components\libraries\util\app_error.h \
  C:/Program\ Files/SEGGER/SEGGER\ Embedded\ Studio\ for\ ARM\ 4.12/include/stdbool.h \
- C:\nRF5_SDK_15.3.0_59ac345\components\libraries\util\sdk_errors.h \
+ C:\home\nRF5_SDK_15.3.0_59ac345\components\libraries\util\sdk_errors.h \
  ../../../../../../components/softdevice/s132/headers/nrf_error.h \
- C:\nRF5_SDK_15.3.0_59ac345\components\libraries\util\nordic_common.h \
- C:\nRF5_SDK_15.3.0_59ac345\components\libraries\util\app_error_weak.h
+ C:\home\nRF5_SDK_15.3.0_59ac345\components\libraries\util\nordic_common.h \
+ C:\home\nRF5_SDK_15.3.0_59ac345\components\libraries\util\app_error_weak.h

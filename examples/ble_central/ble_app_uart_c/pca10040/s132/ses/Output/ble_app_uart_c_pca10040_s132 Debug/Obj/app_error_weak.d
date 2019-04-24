@@ -1,6 +1,6 @@
 Output/ble_app_uart_c_pca10040_s132\ Debug/Obj/app_error_weak.o: \
- C:\nRF5_SDK_15.3.0_59ac345\components\libraries\util\app_error_weak.c \
- C:\nRF5_SDK_15.3.0_59ac345\components\libraries\util\app_error.h \
+ C:\home\nRF5_SDK_15.3.0_59ac345\components\libraries\util\app_error_weak.c \
+ C:\home\nRF5_SDK_15.3.0_59ac345\components\libraries\util\app_error.h \
  C:/Program\ Files/SEGGER/SEGGER\ Embedded\ Studio\ for\ ARM\ 4.12/include/stdint.h \
  C:/Program\ Files/SEGGER/SEGGER\ Embedded\ Studio\ for\ ARM\ 4.12/include/stdio.h \
  C:/Program\ Files/SEGGER/SEGGER\ Embedded\ Studio\ for\ ARM\ 4.12/include/__crossworks.h \
@@ -17,10 +17,10 @@ Output/ble_app_uart_c_pca10040_s132\ Debug/Obj/app_error_weak.o: \
  ../../../../../../modules/nrfx/mdk/nrf51_to_nrf52.h \
  ../../../../../../modules/nrfx/mdk/nrf52_name_change.h \
  ../../../../../../modules/nrfx/mdk/compiler_abstraction.h \
- C:\nRF5_SDK_15.3.0_59ac345\components\libraries\util\sdk_errors.h \
+ C:\home\nRF5_SDK_15.3.0_59ac345\components\libraries\util\sdk_errors.h \
  ../../../../../../components/softdevice/s132/headers/nrf_error.h \
- C:\nRF5_SDK_15.3.0_59ac345\components\libraries\util\nordic_common.h \
- C:\nRF5_SDK_15.3.0_59ac345\components\libraries\util\app_error_weak.h \
+ C:\home\nRF5_SDK_15.3.0_59ac345\components\libraries\util\nordic_common.h \
+ C:\home\nRF5_SDK_15.3.0_59ac345\components\libraries\util\app_error_weak.h \
  ../../../../../../components/libraries/log/nrf_log.h \
  ../../../../../../components/libraries/util/sdk_common.h \
  C:/Program\ Files/SEGGER/SEGGER\ Embedded\ Studio\ for\ ARM\ 4.12/include/string.h \
@@ -57,7 +57,7 @@ Output/ble_app_uart_c_pca10040_s132\ Debug/Obj/app_error_weak.o: \
  ../../../../../../components/softdevice/s132/headers/nrf_error_soc.h \
  ../../../../../../components/softdevice/s132/headers/nrf_nvic.h \
  ../../../../../../components/libraries/util/app_error.h \
- C:\nRF5_SDK_15.3.0_59ac345\components\libraries\util\app_util_platform.h \
+ C:\home\nRF5_SDK_15.3.0_59ac345\components\libraries\util\app_util_platform.h \
  ../../../../../../components/softdevice/s132/headers/nrf_sdm.h \
  ../../../../../../components/softdevice/s132/headers/nrf_error_sdm.h \
  ../../../../../../components/softdevice/s132/headers/nrf_soc.h

@@ -1,5 +1,5 @@
 Output/ble_app_uart_c_pca10040_s132\ Debug/Obj/nrf_log_backend_serial.o: \
- C:\nRF5_SDK_15.3.0_59ac345\components\libraries\log\src\nrf_log_backend_serial.c \
+ C:\home\nRF5_SDK_15.3.0_59ac345\components\libraries\log\src\nrf_log_backend_serial.c \
  ../../../../../../components/libraries/util/sdk_common.h \
  C:/Program\ Files/SEGGER/SEGGER\ Embedded\ Studio\ for\ ARM\ 4.12/include/stdint.h \
  C:/Program\ Files/SEGGER/SEGGER\ Embedded\ Studio\ for\ ARM\ 4.12/include/stdbool.h \
@@ -29,7 +29,7 @@ Output/ble_app_uart_c_pca10040_s132\ Debug/Obj/nrf_log_backend_serial.o: \
  ../../../../../../components/softdevice/s132/headers/nrf_svc.h \
  ../../../../../../components/libraries/util/sdk_macros.h \
  ../../../../../../components/libraries/util/nrf_assert.h \
- C:\nRF5_SDK_15.3.0_59ac345\components\libraries\log\src\nrf_log_backend_serial.h \
+ C:\home\nRF5_SDK_15.3.0_59ac345\components\libraries\log\src\nrf_log_backend_serial.h \
  ../../../../../../components/libraries/log/nrf_log_backend_interface.h \
  ../../../../../../components/libraries/memobj/nrf_memobj.h \
  C:/Program\ Files/SEGGER/SEGGER\ Embedded\ Studio\ for\ ARM\ 4.12/include/stdlib.h \
@@ -54,5 +54,5 @@ Output/ble_app_uart_c_pca10040_s132\ Debug/Obj/nrf_log_backend_serial.o: \
  ../../../../../../components/libraries/log/nrf_log_ctrl.h \
  ../../../../../../components/libraries/log/src/nrf_log_ctrl_internal.h \
  ../../../../../../components/libraries/log/nrf_log_backend_interface.h \
- C:\nRF5_SDK_15.3.0_59ac345\components\libraries\log\src\nrf_log_internal.h \
+ C:\home\nRF5_SDK_15.3.0_59ac345\components\libraries\log\src\nrf_log_internal.h \
  ../../../../../../components/libraries/log/nrf_log_types.h

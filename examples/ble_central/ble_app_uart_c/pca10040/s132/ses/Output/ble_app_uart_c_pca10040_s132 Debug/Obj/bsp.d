@@ -1,6 +1,6 @@
 Output/ble_app_uart_c_pca10040_s132\ Debug/Obj/bsp.o: \
- C:\nRF5_SDK_15.3.0_59ac345\components\libraries\bsp\bsp.c \
- C:\nRF5_SDK_15.3.0_59ac345\components\libraries\bsp\bsp.h \
+ C:\home\nRF5_SDK_15.3.0_59ac345\components\libraries\bsp\bsp.c \
+ C:\home\nRF5_SDK_15.3.0_59ac345\components\libraries\bsp\bsp.h \
  C:/Program\ Files/SEGGER/SEGGER\ Embedded\ Studio\ for\ ARM\ 4.12/include/stdint.h \
  C:/Program\ Files/SEGGER/SEGGER\ Embedded\ Studio\ for\ ARM\ 4.12/include/stdbool.h \
  ../../../../../../components/boards/boards.h \
@@ -56,5 +56,5 @@ Output/ble_app_uart_c_pca10040_s132\ Debug/Obj/bsp.o: \
  ../../../../../../components/boards/pca10040.h \
  ../../../../../../components/libraries/button/app_button.h \
  ../../../../../../components/libraries/util/app_error.h \
- C:\nRF5_SDK_15.3.0_59ac345\components\libraries\bsp\bsp_config.h \
+ C:\home\nRF5_SDK_15.3.0_59ac345\components\libraries\bsp\bsp_config.h \
  ../../../../../../components/libraries/timer/app_timer.h

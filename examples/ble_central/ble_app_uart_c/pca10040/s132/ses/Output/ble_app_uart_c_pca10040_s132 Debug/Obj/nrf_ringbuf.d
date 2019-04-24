@@ -1,6 +1,6 @@
 Output/ble_app_uart_c_pca10040_s132\ Debug/Obj/nrf_ringbuf.o: \
- C:\nRF5_SDK_15.3.0_59ac345\components\libraries\ringbuf\nrf_ringbuf.c \
- C:\nRF5_SDK_15.3.0_59ac345\components\libraries\ringbuf\nrf_ringbuf.h \
+ C:\home\nRF5_SDK_15.3.0_59ac345\components\libraries\ringbuf\nrf_ringbuf.c \
+ C:\home\nRF5_SDK_15.3.0_59ac345\components\libraries\ringbuf\nrf_ringbuf.h \
  C:/Program\ Files/SEGGER/SEGGER\ Embedded\ Studio\ for\ ARM\ 4.12/include/stdint.h \
  ../../../../../../components/libraries/atomic/nrf_atomic.h \
  ../../../../../../components/libraries/util/sdk_common.h \

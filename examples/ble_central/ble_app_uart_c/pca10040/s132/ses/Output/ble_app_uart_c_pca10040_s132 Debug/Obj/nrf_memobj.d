@@ -1,6 +1,6 @@
 Output/ble_app_uart_c_pca10040_s132\ Debug/Obj/nrf_memobj.o: \
- C:\nRF5_SDK_15.3.0_59ac345\components\libraries\memobj\nrf_memobj.c \
- C:\nRF5_SDK_15.3.0_59ac345\components\libraries\memobj\nrf_memobj.h \
+ C:\home\nRF5_SDK_15.3.0_59ac345\components\libraries\memobj\nrf_memobj.c \
+ C:\home\nRF5_SDK_15.3.0_59ac345\components\libraries\memobj\nrf_memobj.h \
  C:/Program\ Files/SEGGER/SEGGER\ Embedded\ Studio\ for\ ARM\ 4.12/include/stdint.h \
  C:/Program\ Files/SEGGER/SEGGER\ Embedded\ Studio\ for\ ARM\ 4.12/include/stdlib.h \
  C:/Program\ Files/SEGGER/SEGGER\ Embedded\ Studio\ for\ ARM\ 4.12/include/__crossworks.h \

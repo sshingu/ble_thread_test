@@ -86,6 +86,8 @@ static uint8_t sequence_num = 0x01;
 const uint8_t measure_start[] = {0x10,0x00,0x05,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
 const uint8_t low_speed_mode[] = {0x40,0x00,0xFF,0x00,0x03,0x01,0x00,0x00,0x00,0x00};
 const uint8_t measure_stop[] = {0x20,0x00};
+static char const m_target_name[] = "hstpe00005";
+static uint8_t module_table[NRF_SDH_BLE_CENTRAL_LINK_COUNT]; 
 
 typedef struct
 {
@@ -111,6 +113,11 @@ static ble_uuid_t const m_nus_uuid =
 {
     .uuid = BLE_UUID_NUS_SERVICE,
     .type = NUS_SERVICE_UUID_TYPE
+};
+
+static ble_uuid128_t const uuid_filter =
+{
+    .uuid128 = NUS_BASE_UUID
 };
 
 
@@ -199,9 +206,12 @@ static void scan_init(void)
     APP_ERROR_CHECK(err_code);
 
     err_code = nrf_ble_scan_filter_set(&m_scan, SCAN_UUID_FILTER, &m_nus_uuid);
+    //err_code = nrf_ble_scan_filter_set(&m_scan, SCAN_UUID_FILTER, &uuid_filter);
+    err_code = nrf_ble_scan_filter_set(&m_scan, SCAN_NAME_FILTER, m_target_name);
     APP_ERROR_CHECK(err_code);
 
-    err_code = nrf_ble_scan_filters_enable(&m_scan, NRF_BLE_SCAN_UUID_FILTER, false);
+    //err_code = nrf_ble_scan_filters_enable(&m_scan, NRF_BLE_SCAN_UUID_FILTER, false);
+    err_code = nrf_ble_scan_filters_enable(&m_scan, NRF_BLE_SCAN_UUID_FILTER | NRF_BLE_SCAN_NAME_FILTER, false);
     APP_ERROR_CHECK(err_code);
 }
 
@@ -224,7 +234,7 @@ static void db_disc_handler(ble_db_discovery_evt_t * p_evt)
  *
  * @details This function takes a list of characters of length data_len and prints the characters out on UART.
  *          If @ref ECHOBACK_BLE_UART_DATA is set, the data is sent back to sender.
- *
+ */
 static void ble_nus_chars_received_uart_print(uint8_t * p_data, uint16_t data_len)
 {
     ret_code_t ret_val;
@@ -262,14 +272,14 @@ static void ble_nus_chars_received_uart_print(uint8_t * p_data, uint16_t data_le
             }
         } while (ret_val == NRF_ERROR_BUSY);
     }
-}*/
+}
 
 
 /**@brief Function for handling characters received by the Nordic UART Service (NUS).
  *
  * @details This function takes a list of characters of length data_len and prints the characters out on UART.
  *          If @ref ECHOBACK_BLE_UART_DATA is set, the data is sent back to sender.
- */
+ *
 static void ble_nus_chars_received_uart_print(uint8_t * p_data, uint16_t data_len)
 {
     ret_code_t ret_val;
@@ -395,11 +405,11 @@ static void ble_nus_chars_received_uart_print(uint8_t * p_data, uint16_t data_le
                 temperature = (p_data[ptr+28]<<8 | p_data[ptr+29]);
                 NRF_LOG_DEBUG("temperature_data : 0x%04x",temperature);
                 relative_temperature = (p_data[ptr+30]<<8 | p_data[ptr+31]);
-                NRF_LOG_DEBUG("relative_temperature_data : 0x%04x",relative_temperature);
+                NRF_LOG_DEBUG("relative_humidity_data : 0x%04x",relative_temperature);
             }
         }
     }
-}
+}*/
 
 
 /**@brief   Function for handling app_uart events.
@@ -477,26 +487,34 @@ static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, ble_nus_c_evt_t con
             err_code = ble_nus_c_handles_assign(p_ble_nus_c, p_ble_nus_evt->conn_handle, &p_ble_nus_evt->handles);
             APP_ERROR_CHECK(err_code);
 
-            //err_code = ble_nus_c_tx_notif_enable(p_ble_nus_c);
+            err_code = ble_nus_c_tx_notif_enable(p_ble_nus_c);
             APP_ERROR_CHECK(err_code);
+            
             NRF_LOG_INFO("Connected to device with Nordic UART Service.");
-            //Resume Scan
-            scan_start();
-            /*set_sequence_number(&low_speed_mode);
-            err_code = ble_nus_c_string_send(&m_ble_nus_c, low_speed_mode, sizeof(low_speed_mode));
+            set_sequence_number(&low_speed_mode);
+            for (uint8_t i=0; i<sizeof(module_table); i++)
+            {
+                if(module_table[i] == 0x01)
+                {
+            err_code = ble_nus_c_string_send(&m_ble_nus_c[i], low_speed_mode, sizeof(low_speed_mode));
                     if ( (err_code != NRF_ERROR_INVALID_STATE) && (err_code != NRF_ERROR_RESOURCES) )
                     {
                         APP_ERROR_CHECK(err_code);
                         NRF_LOG_DEBUG("Set low speed mode");
                     }
-            err_code = ble_nus_c_string_send(&m_ble_nus_c, measure_start, sizeof(measure_start));
+            err_code = ble_nus_c_string_send(&m_ble_nus_c[i], measure_start, sizeof(measure_start));
                     if ( (err_code != NRF_ERROR_INVALID_STATE) && (err_code != NRF_ERROR_RESOURCES) )
                     {
                         APP_ERROR_CHECK(err_code);
                         NRF_LOG_DEBUG("Measure start");
                         err_code = app_timer_start(m_measurement_timer,APP_TIMER_TICKS(MEASUREMENT_TIME),m_measurement_timer);
                         APP_ERROR_CHECK(err_code);
-                    }*/
+                    }
+                }
+            }
+            //Resume Scan
+            scan_start();
+
             break;
 
         case BLE_NUS_C_EVT_NUS_TX_EVT:
@@ -555,8 +573,12 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
     switch (p_ble_evt->header.evt_id)
     {
         case BLE_GAP_EVT_CONNECTED:
-            err_code = ble_nus_c_handles_assign(&m_ble_nus_c[p_gap_evt->conn_handle], p_gap_evt->conn_handle, NULL);
+            err_code = ble_nus_c_handles_assign(&m_ble_nus_c[p_gap_evt->conn_handle], p_gap_evt->conn_handle,NULL);
             APP_ERROR_CHECK(err_code);
+
+            //module_type Registration
+            NRF_LOG_DEBUG("module type : %d",read_module_type());
+            module_table[p_gap_evt->conn_handle] = read_module_type();
 
             err_code = bsp_indication_set(BSP_INDICATE_CONNECTED);
             APP_ERROR_CHECK(err_code);
@@ -564,7 +586,6 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
             // start discovery of services. The NUS Client waits for a discovery result
             err_code = ble_db_discovery_start(&m_db_disc[p_gap_evt->conn_handle],p_gap_evt->conn_handle);
             APP_ERROR_CHECK(err_code);
-            scan_start();
             break;
 
         case BLE_GAP_EVT_DISCONNECTED:

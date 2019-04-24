@@ -53,6 +53,7 @@
 #define UUID32_SIZE     4   /**< Size of 32 bit UUID. */
 #define UUID128_SIZE    16  /**< Size of 128 bit UUID. */
 
+//#define N_AD_TYPES      2   /**< The number of Advertising data types to search for at a time. */
 #define N_AD_TYPES      2   /**< The number of Advertising data types to search for at a time. */
 
 
@@ -738,12 +739,13 @@ bool ble_advdata_uuid_find(uint8_t    const * p_encoded_data,
 
     ret_code_t      err_code;
     uint16_t        data_offset = 0;
-    uint8_t         raw_uuid_len    = UUID128_SIZE;
+    uint8_t         raw_uuid_len = UUID128_SIZE;
     uint8_t const * p_parsed_uuid;
     uint16_t        parsed_uuid_len = data_len;
     uint8_t         raw_uuid[UUID128_SIZE];
     uint8_t         ad_types[N_AD_TYPES];
 
+    //raw_uuid(BASE_UUID) get?
     err_code = sd_ble_uuid_encode(p_target_uuid, &raw_uuid_len, raw_uuid);
 
     if ((p_encoded_data == NULL) || (err_code != NRF_SUCCESS))

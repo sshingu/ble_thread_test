@@ -1,6 +1,6 @@
 Output/ble_app_uart_c_pca10040_s132\ Debug/Obj/boards.o: \
- C:\nRF5_SDK_15.3.0_59ac345\components\boards\boards.c \
- C:\nRF5_SDK_15.3.0_59ac345\components\boards\boards.h \
+ C:\home\nRF5_SDK_15.3.0_59ac345\components\boards\boards.c \
+ C:\home\nRF5_SDK_15.3.0_59ac345\components\boards\boards.h \
  ../../../../../../modules/nrfx/hal/nrf_gpio.h \
  ../../../../../../modules/nrfx/nrfx.h \
  ../../../../../../integration/nrfx/nrfx_config.h ../config/sdk_config.h \
@@ -52,4 +52,4 @@ Output/ble_app_uart_c_pca10040_s132\ Debug/Obj/boards.o: \
  ../../../../../../components/libraries/util/sdk_resources.h \
  ../../../../../../components/softdevice/s132/headers/nrf_sd_def.h \
  ../../../../../../modules/nrfx/drivers/nrfx_errors.h \
- C:\nRF5_SDK_15.3.0_59ac345\components\boards\pca10040.h
+ C:\home\nRF5_SDK_15.3.0_59ac345\components\boards\pca10040.h

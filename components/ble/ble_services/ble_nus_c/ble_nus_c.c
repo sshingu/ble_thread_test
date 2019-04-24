@@ -132,7 +132,6 @@ uint32_t ble_nus_c_init(ble_nus_c_t * p_ble_nus_c, ble_nus_c_init_t * p_ble_nus_
     VERIFY_SUCCESS(err_code);
 
     uart_uuid.type = p_ble_nus_c->uuid_type;
-    /*uart_uuid.uuid = BLE_UUID_NUS_SERVICE;*/
     uart_uuid.uuid = BLE_UUID_NUS_SERVICE;
 
     p_ble_nus_c->conn_handle           = BLE_CONN_HANDLE_INVALID;

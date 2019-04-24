@@ -1,5 +1,5 @@
 Output/ble_app_uart_c_pca10040_s132\ Debug/Obj/ble_db_discovery.o: \
- C:\nRF5_SDK_15.3.0_59ac345\components\ble\ble_db_discovery\ble_db_discovery.c \
+ C:\home\nRF5_SDK_15.3.0_59ac345\components\ble\ble_db_discovery\ble_db_discovery.c \
  ../../../../../../components/libraries/util/sdk_common.h \
  C:/Program\ Files/SEGGER/SEGGER\ Embedded\ Studio\ for\ ARM\ 4.12/include/stdint.h \
  C:/Program\ Files/SEGGER/SEGGER\ Embedded\ Studio\ for\ ARM\ 4.12/include/stdbool.h \
@@ -29,7 +29,7 @@ Output/ble_app_uart_c_pca10040_s132\ Debug/Obj/ble_db_discovery.o: \
  ../../../../../../components/softdevice/s132/headers/nrf_svc.h \
  ../../../../../../components/libraries/util/sdk_macros.h \
  ../../../../../../components/libraries/util/nrf_assert.h \
- C:\nRF5_SDK_15.3.0_59ac345\components\ble\ble_db_discovery\ble_db_discovery.h \
+ C:\home\nRF5_SDK_15.3.0_59ac345\components\ble\ble_db_discovery\ble_db_discovery.h \
  ../../../../../../components/softdevice/s132/headers/ble.h \
  ../../../../../../components/softdevice/s132/headers/nrf_svc.h \
  ../../../../../../components/softdevice/s132/headers/nrf_error.h \

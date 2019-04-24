@@ -1,5 +1,5 @@
 Output/ble_app_uart_c_pca10040_s132\ Debug/Obj/nrfx_gpiote.o: \
- C:\nRF5_SDK_15.3.0_59ac345\modules\nrfx\drivers\src\nrfx_gpiote.c \
+ C:\home\nRF5_SDK_15.3.0_59ac345\modules\nrfx\drivers\src\nrfx_gpiote.c \
  ../../../../../../modules/nrfx/nrfx.h \
  ../../../../../../integration/nrfx/nrfx_config.h ../config/sdk_config.h \
  ../../../../../../modules/nrfx/drivers/nrfx_common.h \

@@ -56,6 +56,7 @@
 #include "nrf_log.h"
 NRF_LOG_MODULE_REGISTER();
 
+static uint8_t module_type = 0;
 
 /**@brief Function for establishing the connection with a device.
  *
@@ -498,7 +499,6 @@ static bool adv_uuid_compare(ble_gap_evt_adv_report_t const * const p_adv_report
                                   &p_uuid_filter->uuid[index]))
         {
             uuid_match_cnt++;
-
             // In the normal filter mode, only one UUID is needed to match.
             if (!all_filters_mode)
             {
@@ -771,6 +771,7 @@ ret_code_t nrf_ble_scan_filters_enable(nrf_ble_scan_t * const p_scan_ctx,
     if (mode & NRF_BLE_SCAN_NAME_FILTER)
     {
         p_filters->name_filter.name_filter_enabled = true;
+        NRF_LOG_DEBUG("name filter enabled");
     }
 #endif
 
@@ -785,6 +786,7 @@ ret_code_t nrf_ble_scan_filters_enable(nrf_ble_scan_t * const p_scan_ctx,
     if (mode & NRF_BLE_SCAN_UUID_FILTER)
     {
         p_filters->uuid_filter.uuid_filter_enabled = true;
+        NRF_LOG_DEBUG("uuid filter enabled");
     }
 #endif
 
@@ -856,10 +858,13 @@ static void nrf_ble_scan_on_adv_report(nrf_ble_scan_t           const * const p_
                                        ble_gap_evt_adv_report_t const * const p_adv_report)
 {
     scan_evt_t scan_evt;
+    static uint8_t addr_check[NRF_BLE_SCAN_NAME_MAX_LEN];
 
 #if (NRF_BLE_SCAN_FILTER_ENABLE == 1)
     uint8_t filter_cnt       = 0;
     uint8_t filter_match_cnt = 0;
+    uint8_t i                = 0;
+    uint8_t addr_check_cnt   = 0;
 #endif
 
     memset(&scan_evt, 0, sizeof(scan_evt));
@@ -931,10 +936,12 @@ static void nrf_ble_scan_on_adv_report(nrf_ble_scan_t           const * const p_
         if (adv_name_compare(p_adv_report, p_scan_ctx))
         {
             filter_match_cnt++;
-
-            // Information about the filters matched.
-            scan_evt.params.filter_match.filter_match.name_filter_match = true;
-            is_filter_matched = true;
+            NRF_LOG_DEBUG("name match ok");
+            //peer address save
+            for(i=0; i < sizeof(p_adv_report->peer_addr.addr); i++)
+            {
+                addr_check[i]= p_adv_report->peer_addr.addr[i];
+            }
         }
     }
 #endif
@@ -946,7 +953,6 @@ static void nrf_ble_scan_on_adv_report(nrf_ble_scan_t           const * const p_
         if (adv_short_name_compare(p_adv_report, p_scan_ctx))
         {
             filter_match_cnt++;
-
             // Information about the filters matched.
             scan_evt.params.filter_match.filter_match.short_name_filter_match = true;
             is_filter_matched = true;
@@ -961,11 +967,37 @@ static void nrf_ble_scan_on_adv_report(nrf_ble_scan_t           const * const p_
         filter_cnt++;
         if (adv_uuid_compare(p_adv_report, p_scan_ctx))
         {
-            NRF_LOG_DEBUG("ble_scan_on_evt");
             filter_match_cnt++;
+            NRF_LOG_DEBUG("uuid match ok");
             // Information about the filters matched.
-            scan_evt.params.filter_match.filter_match.uuid_filter_match = true;
-            is_filter_matched = true;
+            if(addr_check[0] != NULL){
+                for(i=0; i < sizeof(p_adv_report->peer_addr.addr); i++)
+                {
+                    //for DEBUG
+                    //addr_check[2] = NULL;
+                    if(addr_check[i] == p_adv_report->peer_addr.addr[i]){
+                        //addr_check clear and count up
+                        addr_check[i] = NULL;
+                        addr_check_cnt++;
+                    }
+                }
+                NRF_LOG_DEBUG("addr_check_cnt : %d",addr_check_cnt);
+                if(addr_check_cnt == sizeof(p_adv_report->peer_addr.addr))
+                {
+                    NRF_LOG_DEBUG("name & uuid ok");
+                    module_type = 1;
+                    scan_evt.params.filter_match.filter_match.uuid_filter_match = true;
+                    scan_evt.params.filter_match.filter_match.name_filter_match = true;
+                    is_filter_matched = true;
+                } else {
+                    NRF_LOG_DEBUG("do not connect because data may be missing");
+                } 
+            } else {
+                NRF_LOG_DEBUG("uuid only ok");
+                    module_type = 0;
+                    scan_evt.params.filter_match.filter_match.uuid_filter_match = true;
+                    is_filter_matched = true;
+            }
         }
     }
 #endif
@@ -988,7 +1020,6 @@ static void nrf_ble_scan_on_adv_report(nrf_ble_scan_t           const * const p_
 #endif
 
     scan_evt.params.filter_match.p_adv_report = p_adv_report;
-
     // In the multifilter mode, the number of the active filters must equal the number of the filters matched to generate the notification.
     if (all_filter_mode && (filter_match_cnt == filter_cnt))
     {
@@ -1015,7 +1046,6 @@ static void nrf_ble_scan_on_adv_report(nrf_ble_scan_t           const * const p_
     }
 
 #endif // NRF_BLE_SCAN_FILTER_ENABLE
-
     // Resume the scanning.
     UNUSED_RETURN_VALUE(sd_ble_gap_scan_start(NULL, &p_scan_ctx->scan_buffer));
 }
@@ -1263,7 +1293,6 @@ static void nrf_ble_scan_on_connected_evt(nrf_ble_scan_t const * const p_scan_ct
     scan_evt.params.connected.p_connected = &p_gap_evt->params.connected;
     scan_evt.params.connected.conn_handle = p_gap_evt->conn_handle;
     scan_evt.p_scan_params                = &p_scan_ctx->scan_params;
-
     if (p_scan_ctx->evt_handler != NULL)
     {
         p_scan_ctx->evt_handler(&scan_evt);
@@ -1325,6 +1354,9 @@ void nrf_ble_scan_on_ble_evt(ble_evt_t const * p_ble_evt, void * p_contex)
     }
 }
 
+uint8_t read_module_type(void){
+    return module_type;
+}
 
 #endif // NRF_BLE_SCAN_ENABLED
 
