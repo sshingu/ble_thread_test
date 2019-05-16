@@ -66,7 +66,7 @@ void ble_nus_c_on_db_disc_evt(ble_nus_c_t * p_ble_nus_c, ble_db_discovery_evt_t 
     {
         for (uint32_t i = 0; i < p_evt->params.discovered_db.char_count; i++)
         {
-            switch (p_chars[i].characteristic.uuid.uuid)
+            switch ((p_chars+i)->characteristic.uuid.uuid)
             {
                 case BLE_UUID_NUS_RX_CHARACTERISTIC:
                     nus_c_evt.handles.nus_rx_handle = p_chars[i].characteristic.handle_value;
@@ -243,7 +243,7 @@ uint32_t ble_nus_c_string_send(ble_nus_c_t * p_ble_nus_c, uint8_t * p_string, ui
         .len      = length,
         .p_value  = p_string
     };
-   //NRF_LOG_HEXDUMP_DEBUG(p_string,length);
+    NRF_LOG_HEXDUMP_DEBUG(p_string,length);
     return sd_ble_gattc_write(p_ble_nus_c->conn_handle, &write_params);
 }
 

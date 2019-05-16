@@ -71,7 +71,24 @@
 #define NUS_SERVICE_UUID_TYPE   BLE_UUID_TYPE_VENDOR_BEGIN              /**< UUID type for the Nordic UART Service (vendor specific). */
 
 #define ECHOBACK_BLE_UART_DATA  1                                       /**< Echo the UART data that is received over the Nordic UART Service (NUS) back to the sender. */         
-#define MEASUREMENT_TIME        60000
+
+//コマンド
+enum COMMAND_EVTS
+{
+    COMMAND_START           = 0,
+    COMMAND_SETMEASURE      = 1,
+    COMMAND_GETMEASURE      = 2,
+    COMMAND_STOP            = 3,
+    COMMAND_SETPARAM        = 4,
+    COMMAND_GETPARAM        = 5,
+    COMMAND_SETTIME         = 6,
+    COMMAND_GETTIME         = 7,
+    COMMAND_DISCON          = 8
+};
+//コマンド総数と最長コマンド文字数,最大コマンド長パターン
+#define COMMAND_TOTAL 9
+#define MAX_COMMAND_LENGTH 11
+#define MAX_COMMAND_PTN 3
 
 BLE_NUS_C_ARRAY_DEF(m_ble_nus_c,NRF_SDH_BLE_CENTRAL_LINK_COUNT);                                             /**< BLE Nordic UART Service (NUS) client instance. */
 NRF_BLE_GATT_DEF(m_gatt);                                               /**< GATT module instance. */
@@ -80,14 +97,29 @@ NRF_BLE_SCAN_DEF(m_scan);                                               /**< Sca
 APP_TIMER_DEF(m_measurement_timer);
 
 static uint16_t m_ble_nus_max_data_len = BLE_GATT_ATT_MTU_DEFAULT - OPCODE_LENGTH - HANDLE_LENGTH; /**< Maximum length of data (in bytes) that can be transmitted to the peer by the Nordic UART service module. */
-static uint8_t sequence_num = 0x01;
 
 /** command for Transmitter board */
-const uint8_t measure_start[] = {0x10,0x00,0x05,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
-const uint8_t low_speed_mode[] = {0x40,0x00,0xFF,0x00,0x03,0x01,0x00,0x00,0x00,0x00};
-const uint8_t measure_stop[] = {0x20,0x00};
-static char const m_target_name[] = "hstpe00005";
+uint8_t def_command[][14] = {{0xA0,0x00,0x00},
+                            {0x10,0x00,0x05,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00},
+                            {0x20,0x00},
+                            {0x30,0x00},
+                            {0x40,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00},
+                            {0x50,0x00,0x00,0x00,0x00,0x00,0x00,0x00},
+                            {0x60,0x00},
+                            {0x70,0x00}};
+
+const uint8_t command_list[COMMAND_TOTAL][MAX_COMMAND_LENGTH] = {"start","setmeasure","getmeasure","stop","setparam","getparam","settime","gettime","discon"};
+const uint8_t command_length[COMMAND_TOTAL][MAX_COMMAND_PTN] = {{5,9,22},{16,0,0},{10,0,0},{4,0,0},{24,26,27},{8,0,0},{20,0,0},{7,0,0},{8,0,0}};
+
+static uint8_t measurement_time = 0;
+
+static char const m_target_name[] = "hstpe00001";
+
+static uint8_t sequence_num = 0x01;
 static uint8_t module_table[NRF_SDH_BLE_CENTRAL_LINK_COUNT]; 
+static uint8_t connect_device_cnt = 0;
+
+static uint8_t enable_timerid;
 
 typedef struct
 {
@@ -114,12 +146,6 @@ static ble_uuid_t const m_nus_uuid =
     .uuid = BLE_UUID_NUS_SERVICE,
     .type = NUS_SERVICE_UUID_TYPE
 };
-
-static ble_uuid128_t const uuid_filter =
-{
-    .uuid128 = NUS_BASE_UUID
-};
-
 
 /**@brief Function for handling asserts in the SoftDevice.
  *
@@ -264,16 +290,260 @@ static void ble_nus_chars_received_uart_print(uint8_t * p_data, uint16_t data_le
         // Send data back to the peripheral.
         do
         {
-            ret_val = ble_nus_c_string_send(&m_ble_nus_c, p_data, data_len);
-            if ((ret_val != NRF_SUCCESS) && (ret_val != NRF_ERROR_BUSY))
+            for (uint8_t i = 0; i < connect_device_cnt; i++)
             {
-                NRF_LOG_ERROR("Failed sending NUS message. Error 0x%x. ", ret_val);
-                APP_ERROR_CHECK(ret_val);
+                //Send only end module
+                if(module_table[i] == 0x00)
+                {
+                    ret_val = ble_nus_c_string_send(&m_ble_nus_c[i], p_data, data_len);
+                    if ((ret_val != NRF_SUCCESS) && (ret_val != NRF_ERROR_BUSY))
+                    {
+                        NRF_LOG_ERROR("Failed sending NUS message. Error 0x%x. ", ret_val);
+                        APP_ERROR_CHECK(ret_val);
+                    }
+                }
             }
         } while (ret_val == NRF_ERROR_BUSY);
     }
 }
 
+/**@brief NUS で送られてきたコマンドを処理して命令用のバイナリを作る*/
+static void creation_binary_from_command(uint8_t * p_data, uint16_t data_len, uint8_t * command)
+{
+    uint8_t i,j,com = -1,shift = 0;
+    uint16_t hex;
+    uint8_t hex_conversion[5] = {10000,1000,100,10,1};
+    //uint8_t m_time = measurement_time;
+    for(i=0; i<COMMAND_TOTAL; i++)
+    {
+        //コマンド名を確認
+        if(strncmp(p_data,command_list[i],strlen(command_list[i])) == 0)
+        {
+            for(j=0; j<MAX_COMMAND_PTN; j++)
+            {   
+                //コマンド名とデータ長の組み合わせを確認
+                if(command_length[i][j] == data_len)
+                {
+                    com = i;
+                }
+            }
+        }
+    }
+    switch (com)
+    {
+    case COMMAND_START:
+        //初期化
+        memcpy(def_command[1],command,14);
+        //簡易なら抜けて終わり
+        if(data_len > 5)
+        {
+            switch(p_data[6]) //サンプリング種別
+            {
+            case 0: //High
+                break;
+            case 1: //Mid
+                command[3] |= 0x01;
+                break;
+            case 2: //Low
+                command[3] |= 0x02;
+                break;
+            }
+            if(p_data[8] =! 0) //GAIN倍率200倍
+            {
+                command[3] |= 0x04;
+            }
+            if(data_len == 22)  //時刻指定あり
+            {
+                for(i=6; i<12; i++)
+                {
+                    command[i] = (p_data[i*2-1]<<4 | p_data[i*2]);
+                }
+            }
+        }
+        break;
+    case COMMAND_SETMEASURE:
+        //変換と代入
+        for(i=0; i<5; i++)
+        {
+            measurement_time += p_data[11+i] - 0x30 * hex_conversion[i];    
+        }
+        break;
+    case COMMAND_GETMEASURE:
+    {
+    uint8_t m_time = measurement_time;
+        //初期化
+        memcpy(def_command[0],command,3);
+        //hexに変換
+        while(m_time != 0)
+        {
+            hex |= (m_time % 16<<shift);
+            m_time = m_time / 16;
+            shift+=4;
+        }
+        //commandに入れる
+        command[1] |= hex>>8;
+        command[2] |= hex;
+    }
+        break;
+    case COMMAND_STOP:
+        //停止コマンド
+        memcpy(def_command[2],command,2);
+        break;
+    case COMMAND_SETPARAM:
+        //初期化
+        memcpy(def_command[4],command,9);
+        if(p_data[9] != 0)  //ファクトリーモードOFF
+        {
+            command[0] |= 0x01; //ファクトリーモードON
+        }
+        switch (p_data[11]) //動作モード
+        {   
+            case 0: //通常モード
+                command[2] |= 0xFF;
+                break;
+            case 1: //スタンドアロンモード
+                command[2] |= 0x01;
+                break;
+            case 2: //BLE同時書き込みモード
+                command[2] |= 0x02;
+                break;
+            case 3: //USB接続モード
+                command[2] |= 0x03;
+                break;
+            case 4: //OTAモード
+                command[2] |= 0x80;
+                break;
+            default:
+                break;
+        }
+        switch (p_data[13]) //自動電源OFF
+        {
+            case 0: //10分
+                break;
+            case 1: //120分
+                command[3] |= 0x01;
+                break;
+            case 2: //なし
+                command[3] |= 0x10;
+                break;
+            default:
+                break;
+        }
+        switch (p_data[15]) //取得モード
+        {
+            //高速モード時のch数を記憶
+            j = p_data[15];
+            case 0: //通常モード
+                break;
+            case 1: //高速モード(1ch)
+                command[4] |= 0x01;
+                break;
+            case 2: //高速モード(2ch)
+                command[4] |= 0x10;
+                break;
+            case 3: //低速モード
+                command[4] |= 0x11;
+                break; 
+            default:
+                break;
+        }
+        //高速モードか
+        if(data_len >= 26 )
+        {
+            //ch数ループ
+            for(i=0; i<j; i++)
+            {
+                switch(p_data[17+i])
+                {
+                    case 1:
+                        command[4] |= 0x04;
+                        break;
+                    case 2:
+                        command[4] |= 0x08;
+                        break;
+                    case 3:
+                        command[4] |= 0x10;
+                        break;
+                    case 4:
+                        command[4] |= 0x20;
+                        break;
+                    case 5:
+                        command[4] |= 0x40;
+                        break;
+                    default:
+                        break;
+                }
+            }
+        } else {
+            j = 0;
+        }
+        //以降発生する高速モード2chによるズレは定義しておいたjを使う
+        if(p_data[19+j] != 0)   //LED設定
+        {
+            command[5] |= 0x01;
+        }
+        //IDの入力
+        uint8_t id_num = 0;
+        uint32_t id_hex;
+        for(i=0; i<5; i++)
+        {
+            id_num += p_data[21+i+j] - 0x30 * hex_conversion[i];    
+        }
+        //hexに変換
+        while(id_num != 0)
+        {
+            id_hex |= (id_num % 16 << shift);
+            id_num = id_num / 16;
+            shift += 4;
+        }
+        //commandに入れる
+        j=24;
+        for(i=0; i<4; i++)
+        {
+            command[6+i] |= id_hex >> j;
+            j -= 8;
+        }
+        break;
+    case COMMAND_GETPARAM:
+        //設定取得コマンド
+        memcpy(def_command[3],command,2);
+        break;
+    case COMMAND_SETTIME:
+        //初期化
+        memcpy(def_command[5],command,2);
+        for(i=0; i<12; i++)
+        {
+            //コマンドにデータを代入
+            command[i+2] |= (p_data[i+8] - 0x30);
+        }
+        break;
+    case COMMAND_GETTIME:
+        //時刻取得コマンド
+        memcpy(def_command[6],command,2);
+        break;
+    case COMMAND_DISCON:
+        //初期化
+        memcpy(def_command[7],command,2);
+        switch(p_data[7])
+        {
+            case 0: //データ中継機器
+                //デフォルト
+                break;
+            case 1: //データ測定機器
+                command[1] = 0x01;
+                break;
+            case 2: //すべての機器
+                command[1] = 0x02;
+                break;
+            default:
+                break;
+        }
+        break;
+    default:
+        NRF_LOG_DEBUG("Invalid command");
+        break;
+    }
+}
 
 /**@brief Function for handling characters received by the Nordic UART Service (NUS).
  *
@@ -479,50 +749,77 @@ void uart_event_handle(app_uart_evt_t * p_event)
 static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, ble_nus_c_evt_t const * p_ble_nus_evt)
 {
     ret_code_t err_code;
+    uint8_t command;
+    uint8_t destination = 0x01;
 
     switch (p_ble_nus_evt->evt_type)
     {
         case BLE_NUS_C_EVT_DISCOVERY_COMPLETE:
             NRF_LOG_INFO("Discovery complete.");
-            err_code = ble_nus_c_handles_assign(p_ble_nus_c, p_ble_nus_evt->conn_handle, &p_ble_nus_evt->handles);
+            err_code = ble_nus_c_handles_assign((p_ble_nus_c+p_ble_nus_evt->conn_handle), p_ble_nus_evt->conn_handle, &p_ble_nus_evt->handles);
             APP_ERROR_CHECK(err_code);
 
-            err_code = ble_nus_c_tx_notif_enable(p_ble_nus_c);
+            err_code = ble_nus_c_tx_notif_enable(p_ble_nus_c+p_ble_nus_evt->conn_handle);
             APP_ERROR_CHECK(err_code);
             
             NRF_LOG_INFO("Connected to device with Nordic UART Service.");
-            set_sequence_number(&low_speed_mode);
-            for (uint8_t i=0; i<sizeof(module_table); i++)
-            {
-                if(module_table[i] == 0x01)
-                {
-            err_code = ble_nus_c_string_send(&m_ble_nus_c[i], low_speed_mode, sizeof(low_speed_mode));
-                    if ( (err_code != NRF_ERROR_INVALID_STATE) && (err_code != NRF_ERROR_RESOURCES) )
-                    {
-                        APP_ERROR_CHECK(err_code);
-                        NRF_LOG_DEBUG("Set low speed mode");
-                    }
-            err_code = ble_nus_c_string_send(&m_ble_nus_c[i], measure_start, sizeof(measure_start));
-                    if ( (err_code != NRF_ERROR_INVALID_STATE) && (err_code != NRF_ERROR_RESOURCES) )
-                    {
-                        APP_ERROR_CHECK(err_code);
-                        NRF_LOG_DEBUG("Measure start");
-                        err_code = app_timer_start(m_measurement_timer,APP_TIMER_TICKS(MEASUREMENT_TIME),m_measurement_timer);
-                        APP_ERROR_CHECK(err_code);
-                    }
-                }
-            }
+            connect_device_cnt++;
+            
             //Resume Scan
-            scan_start();
-
+            if(connect_device_cnt < NRF_SDH_BLE_CENTRAL_LINK_COUNT)
+            {
+                scan_start();
+            }
             break;
 
         case BLE_NUS_C_EVT_NUS_TX_EVT:
             ble_nus_chars_received_uart_print(p_ble_nus_evt->p_data, p_ble_nus_evt->data_len);
+
+            //物性研からの受信データでない
+            if(! *p_ble_nus_evt->p_data & 0x80)
+            {
+                //コマンド作成
+                creation_binary_from_command(p_ble_nus_evt->p_data, p_ble_nus_evt->data_len,command);
+
+                //測定時間通知の場合送信先を変える
+                if(*p_ble_nus_evt->p_data == 0xA0)
+                {
+                    destination = 0x00;
+                }
+                else
+                {
+                //シーケンス番号付与
+                set_sequence_number(&command);
+                }
+                //コマンド送信
+                for (uint8_t i=0; i<sizeof(module_table); i++)
+                {
+                    //計測機器に送信
+                    if(module_table[i] == destination)
+                    {
+                        err_code = ble_nus_c_string_send(&m_ble_nus_c[i], command, sizeof(command));
+                        //測定時間設定済みかつタイマーstart
+                        if((measurement_time != 0)&&(command == 0x10))
+                        {
+                            err_code = app_timer_start(m_measurement_timer,APP_TIMER_TICKS(measurement_time),m_measurement_timer);
+                       }
+                    }
+                }
+            } else {
+                for(uint8_t i=0; i<sizeof(module_table); i++)
+                {
+                    //中継機器に送信
+                    if(module_table[i] == 0x00)
+                    {
+                        err_code = ble_nus_c_string_send(&m_ble_nus_c[i],p_ble_nus_evt->p_data,p_ble_nus_evt->data_len);
+                    }
+                }
+            }
             break;
 
         case BLE_NUS_C_EVT_DISCONNECTED:
             NRF_LOG_INFO("Disconnected.");
+            connect_device_cnt--;
             scan_start();
             break;
     }
@@ -760,10 +1057,11 @@ static void nus_c_init(void)
 {
     ret_code_t       err_code;
     ble_nus_c_init_t init;
-
-    init.evt_handler = ble_nus_c_evt_handler;
-
-    err_code = ble_nus_c_init(&m_ble_nus_c, &init);
+    for(uint8_t i=0; i<NRF_SDH_BLE_CENTRAL_LINK_COUNT; i++)
+    {
+        init.evt_handler = ble_nus_c_evt_handler;
+        err_code = ble_nus_c_init(&m_ble_nus_c[i], &init);
+    }
     APP_ERROR_CHECK(err_code);
 }
 
@@ -784,8 +1082,9 @@ static void buttons_leds_init(void)
 void end_of_measurement_handler(void * p_context)
 {
     ret_code_t err_code;
+    uint8_t measure_stop ={0x20,0x00};
     set_sequence_number(&measure_stop);
-    err_code = ble_nus_c_string_send(&m_ble_nus_c, measure_stop, sizeof(measure_stop));
+    err_code = ble_nus_c_string_send(&m_ble_nus_c[enable_timerid], measure_stop, sizeof(measure_stop));
         if ( (err_code != NRF_ERROR_INVALID_STATE) && (err_code != NRF_ERROR_RESOURCES) )
         {
             APP_ERROR_CHECK(err_code);
@@ -832,10 +1131,21 @@ static void db_discovery_init(void)
 }
 
 /** @brief Function for Sequence number control */
-void set_sequence_number(uint8_t *p_data)
+void set_sequence_number(uint8_t * p_data)
 {
-    *(p_data+1) = sequence_num; 
-    sequence_num+=0x01;
+     //シーケンス番号のない命令を除外
+    if((*p_data != 0x10)||(*p_data != 0x70))
+    {
+        *(p_data + 1) = sequence_num; 
+        if(sequence_num >= 255){
+            //シーケンス番号を範囲内に留める処理
+            sequence_num = 1;
+        }
+        else
+        {
+            sequence_num++;
+        }
+    }
 }
 
 /**@brief Function for handling the idle state (main loop).

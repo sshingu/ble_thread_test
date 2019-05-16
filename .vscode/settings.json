@@ -10,5 +10,7 @@
         "nrf_ble_gatt.h": "c",
         "app_timer.h": "c"
     },
-    "git.ignoreLimitWarning": true
+    "git.ignoreLimitWarning": true,
+    "C_Cpp.errorSquiggles": "Disabled",
+    "C_Cpp.dimInactiveRegions": false
 }
