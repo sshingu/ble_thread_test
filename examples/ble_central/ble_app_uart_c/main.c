@@ -72,23 +72,27 @@
 
 #define ECHOBACK_BLE_UART_DATA  1                                       /**< Echo the UART data that is received over the Nordic UART Service (NUS) back to the sender. */         
 
-//コマンド
+//各コマンド
 enum COMMAND_EVTS
 {
-    COMMAND_START           = 0,
-    COMMAND_SETMEASURE      = 1,
-    COMMAND_GETMEASURE      = 2,
-    COMMAND_STOP            = 3,
-    COMMAND_SETPARAM        = 4,
-    COMMAND_GETPARAM        = 5,
-    COMMAND_SETTIME         = 6,
-    COMMAND_GETTIME         = 7,
-    COMMAND_DISCON          = 8
+    COM_GETMEASURE      = 0,
+    COM_START           = 1,
+    COM_STOP            = 2,
+    COM_GETPARAM        = 3,
+    COM_SETPARAM        = 4,
+    COM_SETTIME         = 5,
+    COM_GETTIME         = 6,
+    COM_DISCON          = 7,
+    COM_SETMEASURE      = 8,
+    
 };
 //コマンド総数と最長コマンド文字数,最大コマンド長パターン
 #define COMMAND_TOTAL 9
 #define MAX_COMMAND_LENGTH 11
-#define MAX_COMMAND_PTN 3
+
+//計測機器と中継機器の定義
+#define RELAY_EQUIPMENT 0x00
+#define MEASUREMENT_EQUIPMENT 0x01 
 
 BLE_NUS_C_ARRAY_DEF(m_ble_nus_c,NRF_SDH_BLE_CENTRAL_LINK_COUNT);                                             /**< BLE Nordic UART Service (NUS) client instance. */
 NRF_BLE_GATT_DEF(m_gatt);                                               /**< GATT module instance. */
@@ -108,10 +112,10 @@ uint8_t def_command[][14] = {{0xA0,0x00,0x00},
                             {0x60,0x00},
                             {0x70,0x00}};
 
-const uint8_t command_list[COMMAND_TOTAL][MAX_COMMAND_LENGTH] = {"start","setmeasure","getmeasure","stop","setparam","getparam","settime","gettime","discon"};
-const uint8_t command_length[COMMAND_TOTAL][MAX_COMMAND_PTN] = {{5,9,22},{16,0,0},{10,0,0},{4,0,0},{24,26,27},{8,0,0},{20,0,0},{7,0,0},{8,0,0}};
+const uint8_t command_list[COMMAND_TOTAL][MAX_COMMAND_LENGTH] = {"getmeasure","start","stop","getparam","setparam","settime","gettime","discon","setmeasure",};
 
 static uint8_t measurement_time = 0;
+const uint8_t ascii_conversion[] = {10000,1000,100,10,1};
 
 static char const m_target_name[] = "hstpe00001";
 
@@ -307,34 +311,16 @@ static void ble_nus_chars_received_uart_print(uint8_t * p_data, uint16_t data_le
     }
 }
 
-/**@brief NUS で送られてきたコマンドを処理して命令用のバイナリを作る*/
-static void creation_binary_from_command(uint8_t * p_data, uint16_t data_len, uint8_t * command)
+/*@brief Function for Conversion of each command
+*/
+static void command_start(uint8_t * p_data, uint16_t data_len, uint8_t * command)
 {
-    uint8_t i,j,com = -1,shift = 0;
-    uint16_t hex;
-    uint8_t hex_conversion[5] = {10000,1000,100,10,1};
-    //uint8_t m_time = measurement_time;
-    for(i=0; i<COMMAND_TOTAL; i++)
+    //データ長の確認(コマンド以降の引数のチェック)
+    //TODO データ長以外に引数の値も見て確認できるように改良したい
+    if((data_len == 5) || (data_len == 9) || (data_len == 22))
     {
-        //コマンド名を確認
-        if(strncmp(p_data,command_list[i],strlen(command_list[i])) == 0)
-        {
-            for(j=0; j<MAX_COMMAND_PTN; j++)
-            {   
-                //コマンド名とデータ長の組み合わせを確認
-                if(command_length[i][j] == data_len)
-                {
-                    com = i;
-                }
-            }
-        }
-    }
-    switch (com)
-    {
-    case COMMAND_START:
-        //初期化
-        memcpy(def_command[1],command,14);
-        //簡易なら抜けて終わり
+        //デフォルト値の入力
+        memcpy(def_command[COM_START],command,sizeof(def_command[COM_START]));
         if(data_len > 5)
         {
             switch(p_data[6]) //サンプリング種別
@@ -352,46 +338,44 @@ static void creation_binary_from_command(uint8_t * p_data, uint16_t data_len, ui
             {
                 command[3] |= 0x04;
             }
+            //command[4],[5]は0x00固定のため、間が飛んでいるが正常
             if(data_len == 22)  //時刻指定あり
             {
-                for(i=6; i<12; i++)
+                for(uint8_t i=5; i<11; i++)
                 {
-                    command[i] = (p_data[i*2-1]<<4 | p_data[i*2]);
+                    command[i+1] = (p_data[i*2]<<4 | p_data[i*2+1]);
                 }
             }
         }
-        break;
-    case COMMAND_SETMEASURE:
-        //変換と代入
-        for(i=0; i<5; i++)
-        {
-            measurement_time += p_data[11+i] - 0x30 * hex_conversion[i];    
-        }
-        break;
-    case COMMAND_GETMEASURE:
-    {
-    uint8_t m_time = measurement_time;
-        //初期化
-        memcpy(def_command[0],command,3);
-        //hexに変換
-        while(m_time != 0)
-        {
-            hex |= (m_time % 16<<shift);
-            m_time = m_time / 16;
-            shift+=4;
-        }
-        //commandに入れる
-        command[1] |= hex>>8;
-        command[2] |= hex;
     }
-        break;
-    case COMMAND_STOP:
-        //停止コマンド
-        memcpy(def_command[2],command,2);
-        break;
-    case COMMAND_SETPARAM:
-        //初期化
-        memcpy(def_command[4],command,9);
+    else
+    {
+        NRF_LOG_DEBUG("Invalid command argument");
+    }
+}
+
+static void command_stop(uint8_t * command)
+{
+    //停止コマンドの代入のみ
+    memcpy(def_command[COM_STOP],command,sizeof(def_command[COM_STOP]));
+}
+
+static void command_getparam(uint8_t * command)
+{
+    //装置設定取得コマンドの代入のみ
+    memcpy(def_command[COM_GETPARAM],command,sizeof(def_command[COM_GETPARAM]));
+}
+
+static void command_setparam(uint8_t * p_data, uint16_t data_len, uint8_t * command)
+{
+    uint8_t ch_mode,id_num,i;
+    uint32_t id_hex;
+    //データ長の確認(コマンド以降の引数のチェック)
+    //TODO データ長以外に引数の値も見て確認できるように改良したい
+    if((data_len == 24)||(data_len == 26)||(data_len == 27))
+    {
+        //デフォルト値の入力
+        memcpy(def_command[COM_SETPARAM],command,sizeof(def_command[COM_SETPARAM]));
         if(p_data[9] != 0)  //ファクトリーモードOFF
         {
             command[0] |= 0x01; //ファクトリーモードON
@@ -431,15 +415,16 @@ static void creation_binary_from_command(uint8_t * p_data, uint16_t data_len, ui
         }
         switch (p_data[15]) //取得モード
         {
-            //高速モード時のch数を記憶
-            j = p_data[15];
+            ch_mode = 0;
             case 0: //通常モード
                 break;
             case 1: //高速モード(1ch)
                 command[4] |= 0x01;
+                ch_mode = 1;
                 break;
             case 2: //高速モード(2ch)
                 command[4] |= 0x10;
+                ch_mode = 2;
                 break;
             case 3: //低速モード
                 command[4] |= 0x11;
@@ -447,13 +432,14 @@ static void creation_binary_from_command(uint8_t * p_data, uint16_t data_len, ui
             default:
                 break;
         }
-        //高速モードか
-        if(data_len >= 26 )
+        //高速モードの場合分岐
+        if(ch_mode != 0)
         {
-            //ch数ループ
-            for(i=0; i<j; i++)
+            //ch指定個数分ループ
+            for(uint8_t i=0; i<ch_mode; i++)
             {
-                switch(p_data[17+i])
+                //指定chの対応ビットを立てる
+                switch(p_data[17 + i*2])
                 {
                     case 1:
                         command[4] |= 0x04;
@@ -470,60 +456,82 @@ static void creation_binary_from_command(uint8_t * p_data, uint16_t data_len, ui
                     case 5:
                         command[4] |= 0x40;
                         break;
-                    default:
-                        break;
                 }
             }
-        } else {
-            j = 0;
         }
-        //以降発生する高速モード2chによるズレは定義しておいたjを使う
-        if(p_data[19+j] != 0)   //LED設定
+        //高速モードch指定によってズレた分はch_modeで調節する
+        //LED設定
+        if(p_data[17 + ch_mode*2] != 0)
         {
             command[5] |= 0x01;
         }
-        //IDの入力
-        uint8_t id_num = 0;
-        uint32_t id_hex;
+        //装置ID
+        id_num = 0;
+        //asciiから数値に変換
         for(i=0; i<5; i++)
         {
-            id_num += p_data[21+i+j] - 0x30 * hex_conversion[i];    
+            id_num += p_data[19 + i + (ch_mode*2)] - 0x30 * ascii_conversion[i];
         }
-        //hexに変換
-        while(id_num != 0)
+        //数値からhexに変換
+        for(i=0; i<16; i++)
         {
-            id_hex |= (id_num % 16 << shift);
-            id_num = id_num / 16;
-            shift += 4;
+            command[9 - (i/4)] |= ((id_num % 2) << i%4);
+            id_num /= 2;
         }
-        //commandに入れる
-        j=24;
-        for(i=0; i<4; i++)
+    }
+    else
+    {
+        NRF_LOG_DEBUG("Invalid command argument");
+    }
+}
+
+static void command_gettime(uint8_t * command)
+{
+    //時間取得コマンドの代入のみ
+    memcpy(def_command[COM_GETTIME],command,sizeof(def_command[COM_GETTIME]));
+}
+
+static void command_settime(uint8_t * p_data, uint16_t data_len, uint8_t * command)
+{
+    if(data_len == 20)
+    {
+        //デフォルト値の入力
+        memcpy(def_command[COM_SETTIME],command,sizeof(def_command[COM_SETTIME]));
+        for(uint8_t i=0; i<6; i++)
         {
-            command[6+i] |= id_hex >> j;
-            j -= 8;
+            //2Byteのasciiを1Byteにまとめながら代入
+            command[2 + i] = (p_data[8 + i*2]<<4) | ((p_data[8 + i*2 + 1])- 0x30);
         }
-        break;
-    case COMMAND_GETPARAM:
-        //設定取得コマンド
-        memcpy(def_command[3],command,2);
-        break;
-    case COMMAND_SETTIME:
-        //初期化
-        memcpy(def_command[5],command,2);
-        for(i=0; i<12; i++)
+    }
+    else
+    {
+        NRF_LOG_DEBUG("Invalid command argument");
+    }
+}
+
+static void command_setmeasure(uint8_t * p_data, uint16_t data_len, uint8_t * command)
+{
+    if(data_len == 16)
+    {
+        //測定時間の初期化
+        measurement_time = 0;
+        for(uint8_t i=0; i<5; i++)
         {
-            //コマンドにデータを代入
-            command[i+2] |= (p_data[i+8] - 0x30);
+            measurement_time += p_data[11+i] - 0x30 * ascii_conversion[i];    
         }
-        break;
-    case COMMAND_GETTIME:
-        //時刻取得コマンド
-        memcpy(def_command[6],command,2);
-        break;
-    case COMMAND_DISCON:
-        //初期化
-        memcpy(def_command[7],command,2);
+    }
+    else
+    {
+        NRF_LOG_DEBUG("Invalid command argument");
+    }
+}
+
+static void command_discon(uint8_t * p_data, uint16_t data_len, uint8_t * command)
+{
+    if(data_len == 8)
+    {
+        //デフォルト値の入力
+        memcpy(def_command[COM_DISCON],command,sizeof(def_command[COM_DISCON]));
         switch(p_data[7])
         {
             case 0: //データ中継機器
@@ -538,6 +546,80 @@ static void creation_binary_from_command(uint8_t * p_data, uint16_t data_len, ui
             default:
                 break;
         }
+    }
+    else
+    {
+        NRF_LOG_DEBUG("Invalid command argument");
+    }
+}
+
+static void command_getmeasure(uint8_t * command)
+{
+    //デフォルト値の入力
+    memcpy(def_command[COM_GETMEASURE],command,sizeof(def_command[COM_GETMEASURE]));
+    uint8_t time_cp = measurement_time;
+
+    //数値からhexへ変換
+    for(uint8_t i=0; i<8; i++)
+    {
+        command[2 - (i/4)] |= ((time_cp % 2) << i%4);
+        time_cp /= 2;
+    }
+}
+
+/*@brief　空白までの文字数をカウントする*/
+//未完成 & 現在未使用
+static uint8_t read_string(uint8_t * p_data)
+{
+    uint8_t cnt = 0;
+    while(*(p_data+cnt)!= 0x20)
+    {
+        cnt++;
+    }
+    return cnt;
+}
+
+/**@brief NUS で送られてきたコマンドを処理して命令用のバイナリを作る*/
+static void creation_binary_from_command(uint8_t * p_data, uint16_t data_len, uint8_t * command)
+{
+    uint8_t com = -1;
+    for(uint8_t i=0; i<COMMAND_TOTAL; i++)
+    {
+        //コマンド名を確認
+        if(strncmp(p_data,command_list[i],strlen(command_list[i])) == 0)
+        {
+            com = i;
+        }
+    }
+    switch (com)
+    {
+    //関数ポインタ使うともっとスマートに出来る気がする
+    case COM_GETMEASURE:
+        command_getmeasure(command);
+        break;
+    case COM_START:
+        command_start(p_data,data_len,command);
+        break;
+    case COM_STOP:
+        command_stop(command);
+        break;
+    case COM_GETPARAM:
+        command_getparam(command);
+        break;
+    case COM_SETPARAM:
+        command_setparam(p_data,data_len,command);
+        break;
+    case COM_SETTIME:
+        command_settime(p_data,data_len,command);
+        break;
+    case COM_GETTIME:
+        command_gettime(command);
+        break;
+    case COM_DISCON:
+        command_discon(p_data,data_len,command);
+        break;
+    case COM_SETMEASURE:
+        command_setmeasure(p_data,data_len,command);
         break;
     default:
         NRF_LOG_DEBUG("Invalid command");
@@ -749,8 +831,8 @@ void uart_event_handle(app_uart_evt_t * p_event)
 static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, ble_nus_c_evt_t const * p_ble_nus_evt)
 {
     ret_code_t err_code;
-    uint8_t command;
-    uint8_t destination = 0x01;
+    uint8_t *command,i;
+    ble_nus_c_handles_t comp_handles;
 
     switch (p_ble_nus_evt->evt_type)
     {
@@ -775,47 +857,75 @@ static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, ble_nus_c_evt_t con
         case BLE_NUS_C_EVT_NUS_TX_EVT:
             ble_nus_chars_received_uart_print(p_ble_nus_evt->p_data, p_ble_nus_evt->data_len);
 
-            //物性研からの受信データでない
-            if(! *p_ble_nus_evt->p_data & 0x80)
+            //if(p_ble_nus_evt->handles)//TODO 指定方法が不明(固定?変動?変動なら接続時に保存したものから利用
+            if(1)
             {
-                //コマンド作成
-                creation_binary_from_command(p_ble_nus_evt->p_data, p_ble_nus_evt->data_len,command);
-
-                //測定時間通知の場合送信先を変える
-                if(*p_ble_nus_evt->p_data == 0xA0)
+                //命令用のバイナリデータを作成する
+                creation_binary_from_command(p_ble_nus_evt->p_data,p_ble_nus_evt->data_len,command);
+                //物性研に送るコマンドか?
+                if((*command != 0xA0) || (*command != 0x70))
                 {
-                    destination = 0x00;
+                    for(i=0; i<sizeof(module_table); i++)
+                    {
+                        if(module_table[i] == MEASUREMENT_EQUIPMENT)
+                        {
+                            //送信
+                            err_code = ble_nus_c_string_send(&m_ble_nus_c[i], command, sizeof(command));
+                            //計測時間設定済みかつ測定開始命令ならタイマースタート
+                            if((measurement_time != 0)&&(*command == 0x10))//こいつも直値から変えたほうがいいかも？
+                            {
+                                app_timer_start(m_measurement_timer,APP_TIMER_TICKS(measurement_time),m_measurement_timer);
+                            }
+                        }
+                    }
                 }
                 else
                 {
-                //シーケンス番号付与
-                set_sequence_number(&command);
-                }
-                //コマンド送信
-                for (uint8_t i=0; i<sizeof(module_table); i++)
-                {
-                    //計測機器に送信
-                    if(module_table[i] == destination)
+                    //Thread側に送信するもののフィルタリング(get_measureのみ)
+                    if(*command == 0xA0)
                     {
-                        err_code = ble_nus_c_string_send(&m_ble_nus_c[i], command, sizeof(command));
-                        //測定時間設定済みかつタイマーstart
-                        if((measurement_time != 0)&&(command == 0x10))
+                        for(i=0; i<sizeof(module_table); i++)
                         {
-                            err_code = app_timer_start(m_measurement_timer,APP_TIMER_TICKS(measurement_time),m_measurement_timer);
-                       }
+                            if(module_table[i] == RELAY_EQUIPMENT)
+                            {
+                                //送信
+                                err_code = ble_nus_c_string_send(&m_ble_nus_c[i], command, sizeof(command));
+                            }
+                        }
+                    }
+                    else if(*command = 0x70)
+                    {
+                        if(*(command+1) == 0x02) //全ての機器を切断
+                        {
+                            for(i=0; i<sizeof(module_table); i++)
+                            {
+                                //切断処理
+                            }
+                        }
+                        else
+                        {
+                            for(i=0; i<sizeof(module_table); i++)
+                            {
+                                if(module_table[i] == *(command+1))
+                                {
+                                    //切断処理
+                                }
+                            }
+                        }
                     }
                 }
-            } else {
-                for(uint8_t i=0; i<sizeof(module_table); i++)
+            }
+            else
+            {
+                 for(i=0; i<sizeof(module_table); i++)
                 {
-                    //中継機器に送信
-                    if(module_table[i] == 0x00)
+                    if(module_table[i] == RELAY_EQUIPMENT)
                     {
+                        //送信
                         err_code = ble_nus_c_string_send(&m_ble_nus_c[i],p_ble_nus_evt->p_data,p_ble_nus_evt->data_len);
                     }
                 }
             }
-            break;
 
         case BLE_NUS_C_EVT_DISCONNECTED:
             NRF_LOG_INFO("Disconnected.");
