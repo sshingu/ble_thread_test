@@ -122,7 +122,6 @@ uint32_t ble_nus_c_init(ble_nus_c_t * p_ble_nus_c, ble_nus_c_init_t * p_ble_nus_
 {
     uint32_t      err_code;
     ble_uuid_t    uart_uuid;
-    /*ble_uuid128_t nus_base_uuid = NUS_BASE_UUID;*/
     ble_uuid128_t nus_base_uuid = NUS_BASE_UUID;
     
     VERIFY_PARAM_NOT_NULL(p_ble_nus_c);
