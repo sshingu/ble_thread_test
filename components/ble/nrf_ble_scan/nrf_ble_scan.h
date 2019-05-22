@@ -491,6 +491,8 @@ void nrf_ble_scan_on_ble_evt(ble_evt_t const * p_ble_evt, void * p_scan);
 ret_code_t nrf_ble_scan_copy_addr_to_sd_gap_addr(ble_gap_addr_t * p_gap_addr,
                                                  uint8_t    const addr[BLE_GAP_ADDR_LEN]);
 
+uint8_t read_module_type(void);
+
 #ifdef __cplusplus
 }
 #endif
