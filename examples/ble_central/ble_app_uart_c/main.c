@@ -115,7 +115,6 @@ NRF_BLE_SCAN_DEF(m_scan);                                               /**< Sca
 APP_TIMER_DEF(m_measurement_timer);
 APP_TIMER_DEF(m_led_timer);
 
-
 static uint16_t m_ble_nus_max_data_len = BLE_GATT_ATT_MTU_DEFAULT - OPCODE_LENGTH - HANDLE_LENGTH; /**< Maximum length of data (in bytes) that can be transmitted to the peer by the Nordic UART service module. */
 
 //コマンドリストとデフォルト値
@@ -186,7 +185,6 @@ void assert_nrf_callback(uint16_t line_num, const uint8_t * p_file_name)
     app_error_handler(0xDEADBEEF, line_num, p_file_name);
 }
 
-
 /**@brief Function for starting scanning. */
 static void scan_start(void)
 {
@@ -198,7 +196,6 @@ static void scan_start(void)
     ret = bsp_indication_set(BSP_INDICATE_SCANNING);
     APP_ERROR_CHECK(ret);
 }
-
 
 /**@brief Function for handling Scanning Module events.
  */
