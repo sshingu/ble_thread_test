@@ -14,7 +14,6 @@
 "Output/ble_app_uart_c_pca10040_s132 Debug/Obj/app_util_platform.o"
 "Output/ble_app_uart_c_pca10040_s132 Debug/Obj/hardfault_implementation.o"
 "Output/ble_app_uart_c_pca10040_s132 Debug/Obj/nrf_assert.o"
-"Output/ble_app_uart_c_pca10040_s132 Debug/Obj/nrf_atfifo.o"
 "Output/ble_app_uart_c_pca10040_s132 Debug/Obj/nrf_atomic.o"
 "Output/ble_app_uart_c_pca10040_s132 Debug/Obj/nrf_balloc.o"
 "Output/ble_app_uart_c_pca10040_s132 Debug/Obj/nrf_fprintf.o"

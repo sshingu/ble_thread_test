@@ -970,32 +970,32 @@ static void nrf_ble_scan_on_adv_report(nrf_ble_scan_t           const * const p_
             filter_match_cnt++;
             NRF_LOG_DEBUG("uuid match ok");
             // Information about the filters matched.
-            //保存しておいたアドレスと比輁�連続したadvか確�
+            //保存しておいたアドレスと比較して連続したadvか確認
             if(addr_check[0] != NULL){
                 for(i=0; i < sizeof(p_adv_report->peer_addr.addr); i++)
                 {
                     if(addr_check[i] == p_adv_report->peer_addr.addr[i]){
-                        //カウントア�と�タのクリアを行う
+                        //カウントアップとデータのクリア
                         addr_check[i] = NULL;
                         addr_check_cnt++;
                     }
                 }
                 if(addr_check_cnt == sizeof(p_adv_report->peer_addr.addr))
                 {
-                    //nameOK & uuidOK & addrOK　→　名前登録済みッ�イス(エンドモジュール)
+                    //nameOK & uuidOK & addrOK　→　名前登録済みデバイス(エンドモジュール)
                     NRF_LOG_DEBUG("name & uuid ok");
-                    module_type = 1;
+                    module_type = 0;
                     scan_evt.params.filter_match.filter_match.uuid_filter_match = true;
                     scan_evt.params.filter_match.filter_match.name_filter_match = true;
                     is_filter_matched = true;
                 } else {
-                    //nameOK & uuidOK　→　連続したデータじゃなく�能性　接続を見送る
+                    //nameOK & uuidOK　→　連続したデータじゃない可能性　接続を見送る
                     NRF_LOG_DEBUG("do not connect because data may be missing");
                 } 
             } else {
-                //uuid OK →　未登録ッ�イス(BLE Thread)
+                //uuid OK →　未登録デバイス(BLE Thread)
                 NRF_LOG_DEBUG("uuid only ok");
-                    module_type = 0;
+                    module_type = 1;
                     scan_evt.params.filter_match.filter_match.uuid_filter_match = true;
                     is_filter_matched = true;
             }

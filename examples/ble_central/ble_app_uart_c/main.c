@@ -72,7 +72,7 @@
 
 #define ECHOBACK_BLE_UART_DATA  1                                       /**< Echo the UART data that is received over the Nordic UART Service (NUS) back to the sender. */         
 
-//各コマンド番号
+//コマンド番号
 #define COM_GETMEASURE      0x00
 #define COM_START           0x01
 #define COM_STOP            0x02
@@ -87,23 +87,27 @@
 #define COMMAND_TOTAL 9
 #define MAX_COMMAND_LENGTH 11
 
-//戻り値用define
-#define CHECK_SUCCESSFUL            0x00
-#define CHECK_FAILED                0x01
+//コマンドフォーマット確認時戻り値
+#define CHECK_FAILED                0x00
+#define CHECK_SUCCESSFUL            0x01
 
-#define COMMAND_GENERATION_COMPLETE 0x00
-#define REPLY_COMMAND_GENERATION_COMPLETE 0x01
-#define DISCON_COMMAND_GENERATION_COMPLETE 0x02
-#define COMMAND_GENERATION_FAILURE  0x03
+//コマンド生成時戻り値
+#define COMMAND_GENERATION_FAILURE  0x00
+#define COMMAND_GENERATION_COMPLETE 0x01
+#define REPLY_COMMAND_GENERATION_COMPLETE 0x02
+#define DISCON_COMMAND_GENERATION_COMPLETE 0x03
 
-#define MODULE_COMMAND              0x00
-#define REPLY_COMMAND               0x01
-#define DISCONNECTION_COMMAND       0x02
+
+//コマンド送信先参照用(上記のコマンド生成時戻り値と連動)
+#define MODULE_COMMAND              0x01
+#define REPLY_COMMAND               0x02
+#define DISCONNECTION_COMMAND       0x03
 
 
 //計測機器と中継機器の定義
-#define RELAY_EQUIPMENT 0x00
-#define MEASUREMENT_EQUIPMENT 0x01 
+#define MEASUREMENT_EQUIPMENT 0x00 
+#define RELAY_EQUIPMENT 0x01
+#define ALL_EQUIPMENT 0x02
 
 //LED点滅間隔
 #define LED_BLINK_INTERVAL 125
@@ -119,7 +123,7 @@ static uint16_t m_ble_nus_max_data_len = BLE_GATT_ATT_MTU_DEFAULT - OPCODE_LENGT
 
 //コマンドリストとデフォルト値
 const uint8_t command_list[COMMAND_TOTAL][MAX_COMMAND_LENGTH] = {"getmeasure","start","stop","getparam","setparam","settime","gettime","discon","setmeasure",};
-uint8_t def_command[][14] = {{0xA0,0x00,0x00},
+uint8_t def_command[][14] = {{0xA0,0x00,0x00,0x00},
                             {0x10,0x00,0x05,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00},
                             {0x20,0x00},
                             {0x30,0x00},
@@ -127,21 +131,22 @@ uint8_t def_command[][14] = {{0xA0,0x00,0x00},
                             {0x50,0x00,0x00,0x00,0x00,0x00,0x00,0x00},
                             {0x60,0x00},
                             {0x70,0x00}};
-
-//関数ポインタ
-static uint8_t (*po[])() = {command_getmeasure, command_start, command_stop, command_getparam, command_setparam, command_settime, command_gettime, command_discon, command_setmeasure};
+//生成したコマンド格納用
+uint8_t generated_command[14]={0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
 
 //接続機器情報保存用
-static uint8_t module_table[NRF_SDH_BLE_CENTRAL_LINK_COUNT]; 
+static int8_t module_table[NRF_SDH_BLE_CENTRAL_LINK_COUNT]; 
 static uint8_t connect_device_cnt = 0;
 
 //その他変数
 static uint8_t sequence_num = 0x01;
 static uint8_t enable_timerid;
-static uint16_t measurement_time = 0;
+static uint32_t mins = 0;
+static uint64_t measurement_time = 0;
 static uint8_t  led_loopcnt = 0;
+static uint16_t command_length = 0;
 
-static char const m_target_name[] = "hstpe00001";
+static char const m_target_name[] = "hstpe15360";
 
 typedef struct
 {
@@ -272,7 +277,7 @@ static void scan_init(void)
  */
 static void db_disc_handler(ble_db_discovery_evt_t * p_evt)
 {
-    ble_nus_c_on_db_disc_evt(&m_ble_nus_c, p_evt);
+    ble_nus_c_on_db_disc_evt(m_ble_nus_c, p_evt);
 }
 
 
@@ -327,60 +332,67 @@ static void ble_nus_chars_received_uart_print(uint8_t * p_data, uint16_t data_le
     }
 }
 
-//strlenと同等の動きをする関数
-static uint8_t string_len(uint8_t * p_data)
+// 5桁までのAsciiをhexに変換する
+static uint32_t ascii_to_hex_conversion(uint8_t * data, uint8_t len)
 {
-    uint8_t len = 0;
-    while(*p_data++ != '\0')
+    uint32_t num=0;
+    int8_t i,j;
+    //何桁の数字が入っているのか確認して一の位から順に処理(末尾のデータより処理していく)
+    i = len-1;
+    //処理回数のカウント
+    j = 1;
+    while(i >= 0)
     {
-        len++;
+        switch(j)
+        {
+            case 1: //1倍(1の位)
+                num += *(data+i)&0x0F;
+                break;
+            case 2: //10倍(10の位)　Lsh3(8) + Lsh1(2)
+                num += ((*(data+i)&0x0F)<<3) + ((*(data+i)&0x0F)<<1);
+                break;
+            case 3: //100倍(100の位) Lsh6(64) + Lsh5(32) + Lsh2(4) 
+                num += ((*(data+i)&0x0F)<<6) + ((*(data+i)&0x0F)<<5) + ((*(data+i)&0x0F)<<2);
+                break;
+            case 4: //1000倍(1000の位)  Lsh10(1024) - Lsh4(16) - Lsh3(8)
+                num += ((*(data+i)&0x0F)<<10) - ((*(data+i)&0x0F)<<4) - ((*(data+i)&0x0F)<<3);
+                break;
+            case 5: //10000倍(10000の位) Lsh13(8192) + Lsh11(2048) + Lsh4(16) - Lsh8(256)
+                num += ((*(data+i)&0x0F)<<13) + ((*(data+i)&0x0F)<<11) + ((*(data+i)&0x0F)<<4) - ((*(data+i)&0x0F)<<8);
+                break;
+            default:
+                break;
+        }
+        //次の位の処理へ移る　次のポインタの位置は手前なのでデクリメント、処理回数はインクリメントする
+        j++;
+        i--;
     }
-    return len;
-}
-
-// 5桁のAsciiを数値に変換する
-static uint16_t five_digit_ascii_conversion(uint8_t * data)
-{
-    uint16_t num;
-    uint8_t i=0;
-    //10000倍 L13(8192) + L11(2048) + L4(16) - L8(256)
-    num |= data[i]<<13 + data[i]<<11 + data[i]<<4 - data[i]<<8;
-    i++;
-    //1000倍 L10(1024) - L4(16) - L3(8)
-    num |= data[i]<<10 - data[i]<<4 - data[i]<<3;
-    i++;
-    //100倍 L6(64) + L5(32) + L2(4) 
-    num |= data[i]<<6 + data[i]<<5 + data[i]<<2;
-    i++;
-    //10倍　L3(8) + L1(2)
-    num |= data[i]<<3 + data[i]<<2;
-    i++;
-    //1倍
-    num |= data[i];
-
+    NRF_LOG_DEBUG("generated hex %x",num);
     return num;
 }
 
+//コマンドの全長と引数の内容(英字が混ざっていないか)を見てフォーマット通りか確認
 static uint8_t len_args_check(uint8_t * p_data, uint16_t data_len, uint8_t command_name)
 {
-    //コマンド全長の確認
-    uint8_t pos = string_len(command_list[command_name]);
-    uint8_t *command_ptn;
+    uint8_t pos = strlen(command_list[command_name]);
+    uint8_t * command_ptn=(int)NULL;
+    uint8_t ret = CHECK_FAILED;
+
     switch(command_name)
     {
     case COM_START:
         switch(data_len)
         {
             case 5:     //簡易
-                return CHECK_SUCCESSFUL;
+                ret = CHECK_SUCCESSFUL;
             case 9:     //開始時刻なし
                 command_ptn = "0101";
                 break;
-            case 22:    //開始
+            case 22:    //開始時刻あり
                 command_ptn = "01010111111111111";
                 break;
             default:
-                return CHECK_FAILED;
+                break;
         }
         break;
     case COM_SETPARAM:
@@ -396,7 +408,7 @@ static uint8_t len_args_check(uint8_t * p_data, uint16_t data_len, uint8_t comma
                 command_ptn = "01010101010101011111" ;
                 break;
             default:
-                return CHECK_FAILED;
+                break;
         }
         break;
     case COM_SETTIME:
@@ -417,54 +429,64 @@ static uint8_t len_args_check(uint8_t * p_data, uint16_t data_len, uint8_t comma
             command_ptn = "011111" ;
         }
         break;
-    //以下引数なし組
+    //以下引数なしコマンド
     case COM_STOP:
         if(data_len == 4)
         {
-            return CHECK_SUCCESSFUL;  
+            ret = CHECK_SUCCESSFUL;  
         }
+        break;
     case COM_GETPARAM:
         if(data_len == 8)
         {
-            return CHECK_SUCCESSFUL;  
+            ret = CHECK_SUCCESSFUL;  
         }
+        break;
     case COM_GETTIME:
         if(data_len == 7)
         {
-            return CHECK_SUCCESSFUL;  
+            ret = CHECK_SUCCESSFUL;  
         }
+        break;
     case COM_GETMEASURE:
         if(data_len == 10)
         {
-            return CHECK_SUCCESSFUL;  
+            ret = CHECK_SUCCESSFUL;  
         }
+        break;
     default:
-        return CHECK_FAILED;
+        break;
     }
-    //引数チェック  //0→空白, 1→数字でフォーマットと比較
-     while(((command_ptn == "0")&&(p_data[pos] == 0x20))||
-            (command_ptn == "1")&&((0x30 <= p_data[pos])&&(0x39 >= p_data[pos])))
+
+    //引数チェック  //0→カンマ, 1→数字でフォーマットと比較する
+    if(*command_ptn != NULL)
     {
-        command_ptn;
-        pos++;
+        while(((*command_ptn == 0x30)&&(p_data[pos] == 0x2c))||
+                (*command_ptn == 0x31)&&((0x30 <= p_data[pos])&&(0x39 >= p_data[pos])))
+        {
+            command_ptn++;
+            pos++;
+        }
+        if(pos == data_len)
+        {
+            //最後まで一致
+            NRF_LOG_DEBUG("args check ok");
+            ret = CHECK_SUCCESSFUL;
+        }
     }
-    if(pos == data_len)
-    {
-        //最後まで一致
-        return CHECK_SUCCESSFUL;
-    }
-    return CHECK_FAILED ;
+    return ret;
 }
 
 
 /*@brief Function for Conversion of each command*/
 static uint8_t command_start(uint8_t * p_data, uint16_t data_len, uint8_t * command)
 {
-    //データ長の確認(コマンド以降の引数のチェック)
-    if(!len_args_check(p_data, data_len, COM_START))
+    uint8_t ret = COMMAND_GENERATION_FAILURE;
+    //データ全長の確認+コマンド以降の引数の確認
+    if(len_args_check(p_data, data_len, COM_START) == CHECK_SUCCESSFUL)
     {
-        //デフォルト値の入力
-        memcpy(def_command[COM_START],command,sizeof(def_command[COM_START]));
+        //デフォルト値の代入
+        memcpy(command,def_command[COM_START],sizeof(def_command[COM_START]));
         if(data_len > 5)
         {
             switch(p_data[6]) //サンプリング種別
@@ -478,83 +500,85 @@ static uint8_t command_start(uint8_t * p_data, uint16_t data_len, uint8_t * comm
                 command[3] |= 0x02;
                 break;
             default:
-                return COMMAND_GENERATION_FAILURE;
-            }
-            switch(p_data[8])
-            {
-            case '0':
                 break;
-            case '1':
-                command[3] |= 0x04;
-            default:
-                return COMMAND_GENERATION_FAILURE;
             }
-            //command[4],[5]は0x00固定のため、間が飛んでいるが正常
-            if(data_len == 22)  //時刻指定あり
+            switch(p_data[8])   //ゲイン倍率
+            {
+            case '0':           //1000倍
+                break;
+            case '1':           //200倍
+                command[3] |= 0x04;
+                break;
+            default:
+                break;
+            }
+            //command[4],[5]は0x00固定のため間が飛んでいるが正常
+            if(data_len == 22)  //時刻設定あり
             {
                 for(uint8_t i=0; i<6; i++)
                 {
                     command[6+i] = (p_data[10+i<<1]<<4 | p_data[11+i<<1]);
                 }
-                //msecは00固定とする
-                command[12] = 0x00;
-                command[13] = 0x00;
             }
         }
-        return COMMAND_GENERATION_COMPLETE;
+        ret = COMMAND_GENERATION_COMPLETE;
     }
-    else
+    if(ret != COMMAND_GENERATION_FAILURE)
     {
-        return COMMAND_GENERATION_FAILURE;
+        command_length = 14;
+        NRF_LOG_DEBUG("Command generation complete!");
     }
+    return ret;
 }
 
 static uint8_t command_stop(uint8_t * p_data, uint16_t data_len, uint8_t * command)
 {
-    if(!len_args_check(p_data, data_len, COM_STOP))
+    uint8_t ret = COMMAND_GENERATION_FAILURE;
+    if(len_args_check(p_data, data_len, COM_STOP) == CHECK_SUCCESSFUL)
     {
         //停止コマンドの代入のみ
-        memcpy(def_command[COM_STOP],command,sizeof(def_command[COM_STOP]));
-        return COMMAND_GENERATION_COMPLETE;
+        memcpy(command,def_command[COM_STOP],sizeof(def_command[COM_STOP]));
+        ret = COMMAND_GENERATION_COMPLETE;
     }
-    else
+    if(ret != COMMAND_GENERATION_FAILURE)
     {
-        return COMMAND_GENERATION_FAILURE;
+        command_length = 2;
+        NRF_LOG_DEBUG("Command generation complete!");
     }
-    
+    return ret;
 }
 
 static uint8_t command_getparam(uint8_t * p_data, uint16_t data_len, uint8_t * command)
 {
-    if(!len_args_check(p_data, data_len, COM_GETPARAM))
+    uint8_t ret = COMMAND_GENERATION_FAILURE;
+    if(len_args_check(p_data, data_len, COM_GETPARAM) == CHECK_SUCCESSFUL)
     {
         //装置設定取得コマンドの代入のみ
-        memcpy(def_command[COM_GETPARAM],command,sizeof(def_command[COM_GETPARAM]));
-        return COMMAND_GENERATION_COMPLETE;
+        memcpy(command,def_command[COM_GETPARAM],sizeof(def_command[COM_GETPARAM]));
+        ret = COMMAND_GENERATION_COMPLETE;
     }
-    else
+    if(ret != COMMAND_GENERATION_FAILURE)
     {
-        return COMMAND_GENERATION_FAILURE;
+        command_length = 2;
+        NRF_LOG_DEBUG("Command generation complete!");
     }
+    return ret;
 }
 
 static uint8_t command_setparam(uint8_t * p_data, uint16_t data_len, uint8_t * command)
 {
-    uint8_t ch_mode,i;
-    uint16_t id_num = 0;
-    uint32_t id_hex;
+    uint8_t ch_mode=0,i;
+    uint32_t id_num = 0;
+    uint32_t id_mask = 0x00FF0000;
+    uint8_t ret = COMMAND_GENERATION_FAILURE;
 
-    if(!len_args_check(p_data, data_len, COM_SETPARAM))
+    if(len_args_check(p_data, data_len, COM_SETPARAM) == CHECK_SUCCESSFUL)
     {
-        //デフォルト値の入力
-        memcpy(def_command[COM_SETPARAM],command,sizeof(def_command[COM_SETPARAM]));
+        //デフォルト値の代入
+        memcpy(command,def_command[COM_SETPARAM],sizeof(def_command[COM_SETPARAM]));
         if(p_data[9] == '1')  
         {
             command[0] |= 0x01; //ファクトリーモードON
-        }
-        else
-        {
-            return COMMAND_GENERATION_FAILURE;
         }
         switch (p_data[11]) //動作モード
         {   
@@ -574,7 +598,7 @@ static uint8_t command_setparam(uint8_t * p_data, uint16_t data_len, uint8_t * c
                 command[2] |= 0x80;
                 break;
             default:
-                return COMMAND_GENERATION_FAILURE;
+                break;
         }
         switch (p_data[13]) //自動電源OFF
         {
@@ -587,11 +611,10 @@ static uint8_t command_setparam(uint8_t * p_data, uint16_t data_len, uint8_t * c
                 command[3] |= 0x10;
                 break;
             default:
-                return COMMAND_GENERATION_FAILURE;
+                break;
         }
         switch (p_data[15]) //取得モード
         {
-            ch_mode = 0;
             case '0': //通常モード
                 break;
             case '1': //高速モード(1ch)
@@ -599,19 +622,19 @@ static uint8_t command_setparam(uint8_t * p_data, uint16_t data_len, uint8_t * c
                 ch_mode = 1;
                 break;
             case '2': //高速モード(2ch)
-                command[4] |= 0x10;
+                command[4] |= 0x02;
                 ch_mode = 2;
                 break;
             case '3': //低速モード
-                command[4] |= 0x11;
+                command[4] |= 0x03;
                 break; 
             default:
-                return COMMAND_GENERATION_FAILURE;
+                break;
         }
-        //高速モードの場合分岐
+        //高速モードの場合
         if(ch_mode != 0)
         {
-            //ch指定個数分ループ
+            //指定ch数だけループ
             for(uint8_t i=0; i<ch_mode; i++)
             {
                 //指定chの対応ビットを立てる
@@ -633,133 +656,148 @@ static uint8_t command_setparam(uint8_t * p_data, uint16_t data_len, uint8_t * c
                         command[4] |= 0x40;
                         break;
                     default:
-                        return COMMAND_GENERATION_FAILURE;
+                        break;
                 }
             }
         }
-        //高速モードch指定によってズレた分はch_modeで調節する
+        //高速モードのch指定によってズレている分はch_modeで調節する
         //LED設定
-        if(p_data[17 + ch_mode<<1] == '1')
+        if(p_data[17 + ch_mode] == '1')
         {
             command[5] |= 0x01; //LED ON
         }
-        else
+        //asciiからhexに変換
+        id_num = ascii_to_hex_conversion(p_data+(19+(ch_mode<<1)),5);  
+        for(i=0; i<3; i++)
         {
-            return COMMAND_GENERATION_FAILURE;
+            command[7+i] |= (id_num & id_mask)>>((2-i)<<3);
+            id_mask = id_mask >> 8;
+            
         }
-        //asciiから数値に変換
-        id_num = five_digit_ascii_conversion(p_data[19+(ch_mode<<1)]);  
-        //数値からhexに変換
-        for(i=0; i<16; i++)
-        {
-            command[9 - (i>>2)] |= ((id_num % 2) << i%4);
-            id_num = id_num >> 1;
-        }
-        return COMMAND_GENERATION_COMPLETE;
+        ret = COMMAND_GENERATION_COMPLETE;
     }
-    else
+    if(ret != COMMAND_GENERATION_FAILURE)
     {
-        return COMMAND_GENERATION_FAILURE;
+        command_length = 10;
+        NRF_LOG_DEBUG("Command generation complete!");
     }
+    return ret;
 }
 
 static uint8_t command_gettime(uint8_t * p_data, uint16_t data_len, uint8_t * command)
 {
-    if(!len_args_check(p_data, data_len, COM_GETTIME))
+    uint8_t ret = COMMAND_GENERATION_FAILURE;
+    if(len_args_check(p_data, data_len, COM_GETTIME) == CHECK_SUCCESSFUL)
     {
         //時間取得コマンドの代入のみ
-        memcpy(def_command[COM_GETTIME],command,sizeof(def_command[COM_GETTIME]));
-        return COMMAND_GENERATION_COMPLETE;
+        memcpy(command,def_command[COM_GETTIME],sizeof(def_command[COM_GETTIME]));
+        ret = COMMAND_GENERATION_COMPLETE;
     }
-    else
+    if(ret != COMMAND_GENERATION_FAILURE)
     {
-        return COMMAND_GENERATION_FAILURE;
+        command_length = 2;
+        NRF_LOG_DEBUG("Command generation complete!");
     }
-    
+    return ret;
 }
 
 static uint8_t command_settime(uint8_t * p_data, uint16_t data_len, uint8_t * command)
 {
-    if(!len_args_check(p_data, data_len, COM_SETTIME))
+    uint8_t ret = COMMAND_GENERATION_FAILURE;
+    if(len_args_check(p_data, data_len, COM_SETTIME) == CHECK_SUCCESSFUL)
     {
-        //デフォルト値の入力
-        memcpy(def_command[COM_SETTIME],command,sizeof(def_command[COM_SETTIME]));
+        //デフォルト値の代入
+        memcpy(command,def_command[COM_SETTIME],sizeof(def_command[COM_SETTIME]));
+        p_data = p_data + 8;
         for(uint8_t i=0; i<6; i++)
         {
-            //2Byteのasciiを1Byteにまとめながら代入
-            command[2 + i] = (p_data[8 + i<<1]-0x30 <<4) | ((p_data[8 + i<<1 + 1])-0x30);
+            //2Byteのasciiを1Byteにまとめながら代入(Ex.0x31,0x32→0x12)
+            command[2 + i] |= (*(p_data+(i<<1))&0x0F)<<4 | *(p_data+((i<<1)+1))-0x30;
         }
-        return COMMAND_GENERATION_COMPLETE;
+        ret = COMMAND_GENERATION_COMPLETE;
+        
     }
-    else
+    if(ret != COMMAND_GENERATION_FAILURE)
     {
-        return COMMAND_GENERATION_FAILURE;
+        command_length = 8;
+        NRF_LOG_DEBUG("Command generation complete!");
     }
+    return ret;
 }
 
 static uint8_t command_setmeasure(uint8_t * p_data, uint16_t data_len, uint8_t * command)
 {
-    if(!len_args_check(p_data, data_len, COM_SETMEASURE))
+    uint8_t ret = COMMAND_GENERATION_FAILURE;
+    if(len_args_check(p_data, data_len, COM_SETMEASURE) == CHECK_SUCCESSFUL)
     {
-        //測定時間の初期化
-        measurement_time = 0;
-        measurement_time = five_digit_ascii_conversion(p_data[11]);
-        return COMMAND_GENERATION_COMPLETE;
+        //分に変換
+        mins = ascii_to_hex_conversion(p_data+11,data_len-11);
+        //msecに変えるために60000倍する
+        measurement_time = (mins<<15) + (mins<<14) + (mins<<13) + (mins<<11) + (mins<<9) + (mins<<6) + (mins<<5) ;
+        ret = REPLY_COMMAND_GENERATION_COMPLETE;
     }
-    else
+    if(ret != COMMAND_GENERATION_FAILURE)
     {
-        return COMMAND_GENERATION_FAILURE;
+        NRF_LOG_DEBUG("measurement time : %d mins",mins);
     }
+    return ret;
 }
 
 static uint8_t command_discon(uint8_t * p_data, uint16_t data_len, uint8_t * command)
 {
-    if(!len_args_check(p_data, data_len, COM_DISCON))
+    uint8_t ret = COMMAND_GENERATION_FAILURE;
+    if(len_args_check(p_data, data_len, COM_DISCON) == CHECK_SUCCESSFUL)
     {
-        //デフォルト値の入力
-        memcpy(def_command[COM_DISCON],command,sizeof(def_command[COM_DISCON]));
+        //デフォルト値の代入
+        memcpy(command,def_command[COM_DISCON],sizeof(def_command[COM_DISCON]));
         switch(p_data[7])
         {
             case '0': //データ中継機器
-                //デフォルト
+                ret = DISCON_COMMAND_GENERATION_COMPLETE;
+                
                 break;
             case '1': //データ測定機器
                 command[1] = 0x01;
+                ret = DISCON_COMMAND_GENERATION_COMPLETE;
                 break;
             case '2': //すべての機器
                 command[1] = 0x02;
+                ret = DISCON_COMMAND_GENERATION_COMPLETE;
                 break;
             default:
-                return COMMAND_GENERATION_FAILURE;
+                break;
         }
-        return DISCON_COMMAND_GENERATION_COMPLETE;
     }
-    else
+    if(ret != COMMAND_GENERATION_FAILURE)
     {
-        return COMMAND_GENERATION_FAILURE;
+        command_length = 2;
+        NRF_LOG_DEBUG("Command generation complete!");
     }
+    return ret;
 }
 
 static uint8_t command_getmeasure(uint8_t * p_data, uint16_t data_len, uint8_t * command)
 {
-    if(!len_args_check(p_data, data_len, COM_GETMEASURE))
+    uint8_t ret = COMMAND_GENERATION_FAILURE;
+    uint32_t time_mask = 0x00FF0000;
+    if(len_args_check(p_data, data_len, COM_GETMEASURE) == CHECK_SUCCESSFUL)
     {
-        //デフォルト値の入力
-        memcpy(def_command[COM_GETMEASURE],command,sizeof(def_command[COM_GETMEASURE]));
-        uint8_t time_cp = measurement_time;
-
-        //数値からhexへ変換
-        for(uint8_t i=0; i<8; i++)
+       //デフォルト値の代入
+        memcpy(command,def_command[COM_GETMEASURE],sizeof(def_command[COM_GETMEASURE]));
+        uint32_t time_cp = mins;
+        for(uint8_t i=0; i<3; i++)
         {
-            command[2 - (i>>2)] |= ((time_cp % 2) << i%4);
-            time_cp = time_cp >> 1;
+            command[1+i] |= (time_cp & time_mask)>>(16-(i<<3));
+            time_mask = time_mask >> 8;
         }
-        return REPLY_COMMAND_GENERATION_COMPLETE;
+        ret = REPLY_COMMAND_GENERATION_COMPLETE;
+        command_length = 4;
     }
-    else
+    if(ret != COMMAND_GENERATION_FAILURE)
     {
-        return COMMAND_GENERATION_FAILURE;
+        NRF_LOG_DEBUG("Reply command generation complete!");
     }
+    return ret;
 }                                                                                                                                                               
 
 /**@brief NUS で送られてきたコマンドを処理して命令用のバイナリを作る*/
@@ -768,13 +806,12 @@ static uint8_t creation_binary_from_command(uint8_t * p_data, uint16_t data_len,
     uint8_t ret,com = -1;
     for(uint8_t i=0; i<COMMAND_TOTAL; i++)
     {
-        //コマンド名を確認
-        if(strncmp(p_data,command_list[i],string_len(command_list[i])) == 0) //余裕があれば標準関数を使わないように変更したい
+        //コマンド名の確認
+        if(strncmp(p_data,command_list[i],strlen(command_list[i])) == 0)
         {
             com = i;
         }
     }
-    /*case文ver
     switch (com)
     {
     case COM_GETMEASURE:
@@ -803,24 +840,19 @@ static uint8_t creation_binary_from_command(uint8_t * p_data, uint16_t data_len,
         break;
     case COM_SETMEASURE:
         ret = command_setmeasure(p_data,data_len,command);
+        //設定値を返すためにデータを生成する
+        if(ret != COMMAND_GENERATION_FAILURE)
+        {
+            ret = command_getmeasure("getmeasure",10,command);
+        }
         break;
     default:
         ret = COMMAND_GENERATION_FAILURE;
         break;
-    }*/
-
-    //以下関数ポインタver
-    if((i>=0)&&(i<=8))
-    {
-        ret = (*po[i])(p_data,data_len,command);
     }
-    else
-    {
-        ret = COMMAND_GENERATION_FAILURE;
-    }
-
+    
     //フォーマット不一致
-    if(ret != COMMAND_GENERATION_FAILURE)
+    if(ret == COMMAND_GENERATION_FAILURE)
     {
         NRF_LOG_DEBUG("Invalid command!");
         if(led_loopcnt == 0)
@@ -997,7 +1029,7 @@ void uart_event_handle(app_uart_evt_t * p_event)
 
                 do
                 {
-                    ret_val = ble_nus_c_string_send(&m_ble_nus_c, data_array, index);
+                    ret_val = ble_nus_c_string_send(m_ble_nus_c, data_array, index);
                     if ( (ret_val != NRF_ERROR_INVALID_STATE) && (ret_val != NRF_ERROR_RESOURCES) )
                     {
                         APP_ERROR_CHECK(ret_val);
@@ -1024,6 +1056,23 @@ void uart_event_handle(app_uart_evt_t * p_event)
     }
 }
 
+/** @brief Function for Sequence number control */
+void set_sequence_number(uint8_t * p_data)
+{
+     //シーケンス番号のない命令をフィルタリング
+    if((*p_data != 0x10)&&(*p_data != 0x70))
+    {
+        *(p_data + 1) = sequence_num; 
+        if(sequence_num >= 255){
+            //シーケンス番号をループさせるための処理
+            sequence_num = 1;
+        }
+        else
+        {
+            sequence_num++;
+        }
+    }
+}
 
 /**@brief Callback handling Nordic UART Service (NUS) client events.
  *
@@ -1037,7 +1086,7 @@ void uart_event_handle(app_uart_evt_t * p_event)
 static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, ble_nus_c_evt_t const * p_ble_nus_evt)
 {
     ret_code_t err_code;
-    uint8_t *command,i,com_type;
+    int8_t i,com_type;
 
     switch (p_ble_nus_evt->evt_type)
     {
@@ -1050,7 +1099,14 @@ static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, ble_nus_c_evt_t con
             APP_ERROR_CHECK(err_code);
             
             NRF_LOG_INFO("Connected to device with Nordic UART Service.");
-            connect_device_cnt++;
+            if(read_module_type() == RELAY_EQUIPMENT) //中継機器と接続した
+            {
+                bsp_board_led_on(3);
+            }
+            else if(read_module_type() == MEASUREMENT_EQUIPMENT)
+            {
+                bsp_board_led_on(2);
+            }
             
             //Resume Scan
             if(connect_device_cnt < NRF_SDH_BLE_CENTRAL_LINK_COUNT)
@@ -1060,12 +1116,12 @@ static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, ble_nus_c_evt_t con
             break;
 
         case BLE_NUS_C_EVT_NUS_TX_EVT:
-            ble_nus_chars_received_uart_print(p_ble_nus_evt->p_data, p_ble_nus_evt->data_len);
+            //ble_nus_chars_received_uart_print(p_ble_nus_evt->p_data, p_ble_nus_evt->data_len);　//受信メッセージをコンソールに出力する場合は有効化
             //Thread側からのコマンドか判断
-            if(module_table[p_ble_nus_evt->conn_handle] == RELAY_EQUIPMENT)
+            if(module_table[p_ble_nus_c->conn_handle] == RELAY_EQUIPMENT)
             {
-                //命令用のバイナリデータを作成する
-                com_type = creation_binary_from_command(p_ble_nus_evt->p_data,p_ble_nus_evt->data_len,command);
+                //命令用のバイナリコマンドを作成する
+                com_type = creation_binary_from_command(p_ble_nus_evt->p_data,p_ble_nus_evt->data_len,generated_command);
                 //物性研に送るコマンドか判断
                 if(com_type == MODULE_COMMAND)
                 {
@@ -1074,13 +1130,16 @@ static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, ble_nus_c_evt_t con
                         if(module_table[i] == MEASUREMENT_EQUIPMENT)
                         {
                             //シーケンス番号付与
-                            set_sequence_number(command);
+                            set_sequence_number(generated_command);
                             //送信
-                            err_code = ble_nus_c_string_send(&m_ble_nus_c[i], command, sizeof(command));
-                            //計測時間設定済みかつ測定開始命令ならタイマースタート
-                            if((measurement_time != 0)&&(*command == 0x10))//こいつも直値から変えたほうがいいかも？
+                            NRF_LOG_DEBUG("Module_command send");
+                            err_code = ble_nus_c_string_send(&m_ble_nus_c[i], generated_command, command_length);
+                            //計測時間設定済みかつ測定開始命令ならタイマースタートする
+                            if((measurement_time != 0)&&((generated_command[0]>>4) == COM_START))
                             {
+                                NRF_LOG_DEBUG("Measure timer start : %d min",mins);
                                 app_timer_start(m_measurement_timer,APP_TIMER_TICKS(measurement_time),m_measurement_timer);
+                                enable_timerid = i;
                             }
                         }
                     }
@@ -1091,26 +1150,30 @@ static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, ble_nus_c_evt_t con
                     {
                         if(module_table[i] == RELAY_EQUIPMENT)
                         {
-                            //シーケンス番号付与
-                            set_sequence_number(command);
                             //送信
-                            err_code = ble_nus_c_string_send(&m_ble_nus_c[i], command, sizeof(command));
+                            NRF_LOG_DEBUG("Reply_command send");
+                            err_code = ble_nus_c_string_send(&m_ble_nus_c[i], generated_command, command_length);
                         }
                     }
                 }
                 else if(com_type == DISCONNECTION_COMMAND)
                 {
                     ble_nus_c_evt_t nus_c_evt;
-                    if(*(command+1) == 0x02) //全ての機器を切断
+                    NRF_LOG_DEBUG("Discon_command");
+                    if(*(generated_command+1) == ALL_EQUIPMENT) //全ての機器を切断
                     {
                         for(i=0; i<sizeof(module_table); i++)
                         {
-                            //切断処理
-                            err_code = sd_ble_gap_disconnect(&m_ble_nus_c[i].conn_handle,
-                                            BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
-                            if (err_code != NRF_ERROR_INVALID_STATE)
+                            if(module_table[i] != -1)   //未登録のテーブルを切断しないため
                             {
-                                APP_ERROR_CHECK(err_code);
+                                //切断処理
+                                err_code = sd_ble_gap_disconnect(m_ble_nus_c[i].conn_handle,
+                                                BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
+                                if (err_code != NRF_ERROR_INVALID_STATE)
+                                {
+                                    NRF_LOG_DEBUG("Disconnected : EQUIPMENT(%d)",i);
+                                    APP_ERROR_CHECK(err_code);
+                                }
                             }
                         }
                     }
@@ -1118,13 +1181,21 @@ static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, ble_nus_c_evt_t con
                     {
                         for(i=0; i<sizeof(module_table); i++)
                         {
-                            if(module_table[i] == *(command+1))
+                            if(module_table[i] == *(generated_command+1))
                             {
                                 //切断処理
-                                err_code = sd_ble_gap_disconnect(&m_ble_nus_c[i].conn_handle,
+                                err_code = sd_ble_gap_disconnect(m_ble_nus_c[i].conn_handle,
                                                 BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
                                 if (err_code != NRF_ERROR_INVALID_STATE)
                                 {
+                                    if(*(generated_command+1) == RELAY_EQUIPMENT)
+                                    {
+                                        NRF_LOG_DEBUG("Disconnected : RELAY_EQUIPMENT(%d)",i);
+                                    }
+                                    else
+                                    {
+                                        NRF_LOG_DEBUG("Disconnected : MEASUREMENT_EQUIPMENT(%d)",i);
+                                    }
                                     APP_ERROR_CHECK(err_code);
                                 }
                             }
@@ -1139,14 +1210,15 @@ static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, ble_nus_c_evt_t con
                     if(module_table[i] == RELAY_EQUIPMENT)
                     {
                         //送信
+                        NRF_LOG_DEBUG("Relay_command");
                         err_code = ble_nus_c_string_send(&m_ble_nus_c[i],p_ble_nus_evt->p_data,p_ble_nus_evt->data_len);
                     }
                 }
             }
+            break;
 
         case BLE_NUS_C_EVT_DISCONNECTED:
             NRF_LOG_INFO("Disconnected.");
-            connect_device_cnt--;
             scan_start();
             break;
     }
@@ -1193,6 +1265,7 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
 {
     ret_code_t            err_code;
     ble_gap_evt_t const * p_gap_evt = &p_ble_evt->evt.gap_evt;
+    uint8_t same_type_device=0;
 
     switch (p_ble_evt->header.evt_id)
     {
@@ -1210,13 +1283,28 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
             // start discovery of services. The NUS Client waits for a discovery result
             err_code = ble_db_discovery_start(&m_db_disc[p_gap_evt->conn_handle],p_gap_evt->conn_handle);
             APP_ERROR_CHECK(err_code);
+            connect_device_cnt++;
             break;
+            
 
         case BLE_GAP_EVT_DISCONNECTED:
-
             NRF_LOG_INFO("Disconnected. conn_handle: 0x%x, reason: 0x%x",
                          p_gap_evt->conn_handle,
                          p_gap_evt->params.disconnected.reason);
+            for(uint8_t i=0; i<sizeof(module_table); i++)
+            {
+                if(module_table[i] == module_table[p_gap_evt->conn_handle])
+                {
+                    same_type_device++;   
+                }
+            }
+            if(same_type_device == 1) //他に同じ種類の機器が接続されていない場合
+            {
+                //対応する機器のLEDを消灯
+                bsp_board_led_off(2+module_table[p_gap_evt->conn_handle]);
+            }
+            module_table[p_gap_evt->conn_handle] = -1;  //テーブルを未登録状態に戻す
+            connect_device_cnt--;
             break;
 
         case BLE_GAP_EVT_TIMEOUT:
@@ -1387,6 +1475,7 @@ static void nus_c_init(void)
     {
         init.evt_handler = ble_nus_c_evt_handler;
         err_code = ble_nus_c_init(&m_ble_nus_c[i], &init);
+        module_table[i] = -1;
     }
     APP_ERROR_CHECK(err_code);
 }
@@ -1405,29 +1494,11 @@ static void buttons_leds_init(void)
     APP_ERROR_CHECK(err_code);
 }
 
-/** @brief Function for Sequence number control */
-void set_sequence_number(uint8_t * p_data)
-{
-     //シーケンス番号のない命令を除外
-    if((*p_data != 0x10)||(*p_data != 0x70))
-    {
-        *(p_data + 1) = sequence_num; 
-        if(sequence_num >= 255){
-            //シーケンス番号を範囲内に留める処理
-            sequence_num = 1;
-        }
-        else
-        {
-            sequence_num++;
-        }
-    }
-}
-
 void end_of_measurement_handler(void * p_context)
 {
     ret_code_t err_code;
     uint8_t measure_stop[] ={0x20,0x00};
-    set_sequence_number(&measure_stop);
+    set_sequence_number(measure_stop);
     err_code = ble_nus_c_string_send(&m_ble_nus_c[enable_timerid], measure_stop, sizeof(measure_stop));
         if ( (err_code != NRF_ERROR_INVALID_STATE) && (err_code != NRF_ERROR_RESOURCES) )
         {

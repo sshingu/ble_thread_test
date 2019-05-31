@@ -4,7 +4,8 @@
   <BookmarkItem objectName="" line="755" column="0" path="C:/home/nRF5_SDK_15.3.0_59ac345/components/ble/common/ble_advdata.c" number="1" extra="" color="5"/>
  </Bookmarks>
  <Breakpoints groups="Breakpoints" active_group="Breakpoints">
-  <BreakpointListItem trigger="" line="372" counter="0" hardwareBreakpoint="" isFunctionBreakpoint="false" action="" expression="" group="Breakpoints" type="Breakpoint" state="2" filename="../../../main.c" useHWbreakpoint="false"/>
+  <BreakpointListItem trigger="" line="1277" counter="0" hardwareBreakpoint="" isFunctionBreakpoint="false" action="" expression="" group="Breakpoints" type="Breakpoint" state="2" filename="../../../main.c" useHWbreakpoint="false"/>
+  <BreakpointListItem trigger="" line="369" counter="0" hardwareBreakpoint="" isFunctionBreakpoint="false" action="" expression="" group="Breakpoints" type="Breakpoint" state="2" filename="../../../main.c" useHWbreakpoint="false"/>
   <Exceptions set="MemManage;UsageFault_Coprocessor;UsageFault_CheckingError;UsageFault_StateError;BusFault;ExceptionEntryReturnFault;HardFault"/>
  </Breakpoints>
  <ExecutionProfileWindow/>
@@ -51,8 +52,8 @@
  </TraceWindow>
  <Watch1>
   <Watches active="1" update="Never">
-   <Watchpoint numelements="0" expression="sequence_num" evalMode="0" name="sequence_num" radix="-1" linenumber="834" filename="../../../main.c" list=""/>
-   <Watchpoint numelements="2" expression="measure_stop" evalMode="2" name="measure_stop" radix="-1" linenumber="511" filename="../../../main.c" list=""/>
+   <Watchpoint numelements="0" expression="sequence_num" evalMode="0" name="sequence_num" radix="-1" linenumber="833" filename="../../../main.c" list=""/>
+   <Watchpoint numelements="2" expression="measure_stop" evalMode="2" name="measure_stop" radix="-1" linenumber="508" filename="../../../main.c" list=""/>
   </Watches>
  </Watch1>
  <Watch2>
@@ -65,7 +66,7 @@
   <Watches active="0" update="Never"/>
  </Watch4>
  <Files>
-  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="1254" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../../../components/ble/nrf_ble_scan/nrf_ble_scan.c" selected="0" top="1239" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="1266" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../../../components/ble/nrf_ble_scan/nrf_ble_scan.c" selected="0" top="1245" codecName="Default"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="0" y="241" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../../../components/ble/ble_services/ble_nus_c/ble_nus_c.c" selected="0" top="222" codecName="Default"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="0" y="306" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../../../components/softdevice/common/nrf_sdh_ble.c" selected="0" top="280" codecName="Default"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="0" y="357" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../../../components/softdevice/common/nrf_sdh.c" selected="0" top="338" codecName="Default"/>
@@ -74,14 +75,15 @@
   <SessionOpenFile windowGroup="DockEditLeft" x="0" y="595" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../../../components/softdevice/s132/headers/ble.h" selected="0" top="576" codecName="Default"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="0" y="164" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../../../components/libraries/util/app_error.h" selected="0" top="144" codecName="Default"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="0" y="80" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../../../components/softdevice/s132/headers/nrf_error.h" selected="0" top="51" codecName="Default"/>
-  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="107" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../../../components/ble/nrf_ble_scan/nrf_ble_scan.h" selected="0" top="89" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="107" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../../../components/ble/nrf_ble_scan/nrf_ble_scan.h" selected="0" top="125" codecName="Default"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="0" y="48" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../../../components/libraries/util/app_error_handler_gcc.c" selected="0" top="33" codecName="Default"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="0" y="70" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../../../components/toolchain/cmsis/include/cmsis_gcc.h" selected="0" top="55" codecName="Default"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="0" y="543" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../../../components/libraries/log/src/nrf_log_frontend.c" selected="0" top="524" codecName="Default"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="0" y="200" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../../../components/ble/ble_services/ble_nus_c/ble_nus_c.h" selected="0" top="163" codecName="Default"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="0" y="110" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../../../components/libraries/util/app_error_weak.c" selected="0" top="88" codecName="Default"/>
-  <SessionOpenFile windowGroup="DockEditLeft" x="62" y="1085" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../main.c" selected="1" top="1058" codecName="UTF-8"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="9" y="446" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../main.c" selected="1" top="439" codecName="UTF-8"/>
   <SessionOpenFile windowGroup="DockEditLeft" x="0" y="47" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../../../components/libraries/util/sdk_common.h" selected="0" top="25" codecName="Default"/>
+  <SessionOpenFile windowGroup="DockEditLeft" x="0" y="30" useTextEdit="1" useBinaryEdit="0" left="0" path="../../../../../../components/libraries/hardfault/hardfault_implementation.c" selected="0" top="15" codecName="Default"/>
  </Files>
  <ARMCrossStudioWindow activeProject="ble_app_uart_c_pca10040_s132" fileDialogDefaultFilter="*.c" autoConnectTarget="J-Link" buildConfiguration="Debug" debugSearchFileMap="" fileDialogInitialDirectory="" debugSearchPath="" autoConnectCapabilities="3199"/>
 </session>

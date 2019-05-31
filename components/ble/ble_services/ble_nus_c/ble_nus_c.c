@@ -243,6 +243,7 @@ uint32_t ble_nus_c_string_send(ble_nus_c_t * p_ble_nus_c, uint8_t * p_string, ui
         .p_value  = p_string
     };
     NRF_LOG_HEXDUMP_DEBUG(p_string,length);
+    NRF_LOG_DEBUG("command send!");
     return sd_ble_gattc_write(p_ble_nus_c->conn_handle, &write_params);
 }
 
